@@ -1,0 +1,43 @@
+<ng-container *ngIf="isAuthenticated; else publicTopbar">
+  <aside class="sidebar">
+    <div class="brand">AquaFarm</div>
+    <nav class="sidebar-nav">
+      <a routerLink="/dashboard" routerLinkActive="active">{{ 'nav.dashboard' | i18n }}</a>
+      <a routerLink="/ponds" routerLinkActive="active">{{ 'nav.ponds' | i18n }}</a>
+      <a routerLink="/loans" routerLinkActive="active">{{ 'nav.loans' | i18n }}</a>
+      <a routerLink="/groups" routerLinkActive="active">{{ 'nav.groups' | i18n }}</a>
+    </nav>
+    <div class="sidebar-user">
+      <div class="sidebar-user-label">Logged in as</div>
+      <div class="sidebar-user-name">{{ currentUserName }}</div>
+      <div class="sidebar-user-role">{{ currentUserRole }}</div>
+    </div>
+  </aside>
+
+  <header class="topbar">
+    <div class="topbar-title">Administration</div>
+    <div style="display: flex; align-items: center; gap: 10px;">
+      <label for="lang-auth" style="font-size: 0.9rem;">{{ 'nav.language' | i18n }}</label>
+      <select id="lang-auth" [(ngModel)]="currentLanguage">
+        <option value="en">{{ 'lang.english' | i18n }}</option>
+        <option value="hi">{{ 'lang.hindi' | i18n }}</option>
+        <option value="bn">{{ 'lang.bengali' | i18n }}</option>
+      </select>
+      <button class="danger" (click)="logout()">{{ 'nav.logout' | i18n }}</button>
+    </div>
+  </header>
+</ng-container>
+
+<ng-template #publicTopbar>
+  <header class="public-topbar">
+    <div class="brand">AquaFarm</div>
+    <div style="display: flex; align-items: center; gap: 10px;">
+      <label for="lang-public" style="font-size: 0.9rem;">{{ 'nav.language' | i18n }}</label>
+      <select id="lang-public" [(ngModel)]="currentLanguage">
+        <option value="en">{{ 'lang.english' | i18n }}</option>
+        <option value="hi">{{ 'lang.hindi' | i18n }}</option>
+        <option value="bn">{{ 'lang.bengali' | i18n }}</option>
+      </select>
+    </div>
+  </header>
+</ng-template>

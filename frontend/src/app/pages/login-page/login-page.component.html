@@ -1,0 +1,62 @@
+<div style="max-width: 400px; margin: 50px auto;">
+  <div class="card">
+    <h2>{{ 'login.title' | i18n }}</h2>
+    <div class="error" *ngIf="errorMessage">{{ errorMessage }}</div>
+    <form (ngSubmit)="handleLogin($event)">
+      <div class="form-group">
+        <label for="phoneNumber">{{ 'login.phone' | i18n }}</label>
+        <input
+          id="phoneNumber"
+          type="tel"
+          [(ngModel)]="phoneNumber"
+          name="phoneNumber"
+          required
+          pattern="^\+?[0-9]{10,15}$"
+          title="Enter a valid phone number with 10 to 15 digits"
+        >
+      </div>
+      <div class="form-group">
+        <label for="password">{{ 'login.password' | i18n }}</label>
+        <div style="display: flex; gap: 8px; align-items: center;">
+          <input
+            id="password"
+            [type]="showPassword ? 'text' : 'password'"
+            [(ngModel)]="password"
+            name="password"
+            required
+            style="flex: 1;"
+          >
+          <button
+            type="button"
+            (click)="showPassword = !showPassword"
+            [attr.aria-label]="showPassword ? 'Hide password' : 'Show password'"
+            title="Toggle password visibility"
+            style="display: inline-flex; align-items: center; justify-content: center; width: 42px; height: 38px;"
+          >
+            <svg *ngIf="!showPassword" width="20" height="20" viewBox="0 0 24 24" fill="none" aria-hidden="true">
+              <path d="M1 12C3.5 7.5 7.3 5.2 12 5.2C16.7 5.2 20.5 7.5 23 12C20.5 16.5 16.7 18.8 12 18.8C7.3 18.8 3.5 16.5 1 12Z" stroke="currentColor" stroke-width="1.8"/>
+              <circle cx="12" cy="12" r="3.2" stroke="currentColor" stroke-width="1.8"/>
+            </svg>
+            <svg *ngIf="showPassword" width="20" height="20" viewBox="0 0 24 24" fill="none" aria-hidden="true">
+              <path d="M1 12C3.5 7.5 7.3 5.2 12 5.2C16.7 5.2 20.5 7.5 23 12C20.5 16.5 16.7 18.8 12 18.8C7.3 18.8 3.5 16.5 1 12Z" stroke="currentColor" stroke-width="1.8"/>
+              <circle cx="12" cy="12" r="3.2" stroke="currentColor" stroke-width="1.8"/>
+              <path d="M4 20L20 4" stroke="currentColor" stroke-width="1.8"/>
+            </svg>
+          </button>
+        </div>
+      </div>
+      <button type="submit" [disabled]="loading" style="width: 100%;">
+        {{ loading ? ('login.loggingIn' | i18n) : ('login.login' | i18n) }}
+      </button>
+    </form>
+    <p style="margin-top: 20px; font-size: 0.9rem; display: none;">
+      {{ 'login.demo' | i18n }} <code>9000000001</code> / <code>password123</code>
+    </p>
+    <p style="margin-top: 12px; font-size: 0.9rem;">
+      {{ 'login.newHere' | i18n }} <a routerLink="/register">{{ 'login.createAccount' | i18n }}</a>
+    </p>
+    <p style="margin-top: 8px; font-size: 0.9rem;">
+      <a routerLink="/forgot-password">{{ 'login.forgotPassword' | i18n }}</a>
+    </p>
+  </div>
+</div>

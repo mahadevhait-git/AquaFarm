@@ -1,0 +1,30 @@
+<div>
+  <h1 class="page-title">{{ 'dashboard.title' | i18n }}</h1>
+  <div class="error" *ngIf="errorKey">{{ errorKey | i18n }}</div>
+
+  <p *ngIf="loading">{{ 'common.loading' | i18n }}</p>
+
+  <div *ngIf="!loading">
+    <h2>{{ 'dashboard.yourPonds' | i18n }}</h2>
+    <p *ngIf="ponds.length === 0">{{ 'dashboard.none' | i18n }}</p>
+
+    <table class="table" *ngIf="ponds.length > 0">
+      <thead>
+        <tr>
+          <th>{{ 'dashboard.pondName' | i18n }}</th>
+          <th>{{ 'common.location' | i18n }}</th>
+          <th>{{ 'dashboard.ownerId' | i18n }}</th>
+          <th>{{ 'common.created' | i18n }}</th>
+        </tr>
+      </thead>
+      <tbody>
+        <tr *ngFor="let pond of ponds">
+          <td>{{ pond.name }}</td>
+          <td>{{ pond.location || ('common.na' | i18n) }}</td>
+          <td>{{ pond.ownerId }}</td>
+          <td>{{ pond.createdAt | date }}</td>
+        </tr>
+      </tbody>
+    </table>
+  </div>
+</div>

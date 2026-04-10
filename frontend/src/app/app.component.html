@@ -1,0 +1,6 @@
+<div class="app" [class.authenticated]="isAuthenticated">
+  <app-navigation></app-navigation>
+  <main class="container" [class.authenticated]="isAuthenticated">
+    <router-outlet></router-outlet>
+  </main>
+</div>

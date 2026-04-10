@@ -1,0 +1,10 @@
+<Solution>
+  <Folder Name="/src/">
+    <Project Path="src/AquaFarm.Api/AquaFarm.Api.csproj" />
+    <Project Path="src/AquaFarm.Core/AquaFarm.Core.csproj" />
+    <Project Path="src/AquaFarm.Infrastructure/AquaFarm.Infrastructure.csproj" />
+  </Folder>
+  <Folder Name="/tests/">
+    <Project Path="tests/AquaFarm.Tests/AquaFarm.Tests.csproj" />
+  </Folder>
+</Solution>

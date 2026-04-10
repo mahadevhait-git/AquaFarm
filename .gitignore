@@ -1,0 +1,16 @@
+node_modules/
+dist/
+.angular/
+bin/
+obj/
+
+*.log
+api*.log
+
+.vs/
+.vscode/
+*.user
+*.suo
+
+coverage/
+TestResults/

@@ -1,0 +1,99 @@
+<div style="max-width: 460px; margin: 50px auto;">
+  <div class="card">
+    <h2>{{ 'register.title' | i18n }}</h2>
+    <div class="error" *ngIf="errorMessage">{{ errorMessage }}</div>
+
+    <div *ngIf="step === 1">
+      <p style="margin-bottom: 16px;">{{ 'register.chooseRole' | i18n }}</p>
+      <div style="display: grid; gap: 10px;">
+        <button type="button" (click)="selectRole('Farmer')">{{ 'register.farmer' | i18n }}</button>
+        <button type="button" (click)="selectRole('GroupManager')">{{ 'register.groupManager' | i18n }}</button>
+      </div>
+      <p style="margin-top: 12px; font-size: 0.85rem;">
+        {{ 'register.adminBlocked' | i18n }}
+      </p>
+    </div>
+
+    <form *ngIf="step === 2" (ngSubmit)="handleRegister($event)">
+      <p style="margin-top: 0;">
+        {{ 'register.roleSelected' | i18n }}:
+        <strong>{{ selectedRole === 'Farmer' ? ('register.farmer' | i18n) : ('register.groupManager' | i18n) }}</strong>
+      </p>
+
+      <div class="form-group">
+        <label for="firstName">{{ 'register.firstName' | i18n }}</label>
+        <input id="firstName" type="text" [(ngModel)]="firstName" name="firstName" required>
+      </div>
+
+      <div class="form-group">
+        <label for="lastName">{{ 'register.lastName' | i18n }}</label>
+        <input id="lastName" type="text" [(ngModel)]="lastName" name="lastName" required>
+      </div>
+
+      <div class="form-group">
+        <label for="address">{{ 'register.address' | i18n }}</label>
+        <textarea id="address" [(ngModel)]="address" name="address" rows="3" required></textarea>
+      </div>
+
+      <div class="form-group">
+        <label for="email">{{ 'register.email' | i18n }}</label>
+        <input id="email" type="email" [(ngModel)]="email" name="email" required email>
+      </div>
+
+      <div class="form-group">
+        <label for="phoneNumber">{{ 'login.phone' | i18n }}</label>
+        <input
+          id="phoneNumber"
+          type="tel"
+          [(ngModel)]="phoneNumber"
+          name="phoneNumber"
+          required
+          pattern="^\+?[0-9]{10,15}$"
+          title="Enter a valid phone number with 10 to 15 digits"
+        >
+      </div>
+
+      <div class="form-group">
+        <label for="password">{{ 'login.password' | i18n }}</label>
+        <div style="display: flex; gap: 8px; align-items: center;">
+          <input
+            id="password"
+            [type]="showPassword ? 'text' : 'password'"
+            [(ngModel)]="password"
+            name="password"
+            required
+            style="flex: 1;"
+          >
+          <button
+            type="button"
+            (click)="showPassword = !showPassword"
+            [attr.aria-label]="showPassword ? 'Hide password' : 'Show password'"
+            title="Toggle password visibility"
+            style="display: inline-flex; align-items: center; justify-content: center; width: 42px; height: 38px;"
+          >
+            <svg *ngIf="!showPassword" width="20" height="20" viewBox="0 0 24 24" fill="none" aria-hidden="true">
+              <path d="M1 12C3.5 7.5 7.3 5.2 12 5.2C16.7 5.2 20.5 7.5 23 12C20.5 16.5 16.7 18.8 12 18.8C7.3 18.8 3.5 16.5 1 12Z" stroke="currentColor" stroke-width="1.8"/>
+              <circle cx="12" cy="12" r="3.2" stroke="currentColor" stroke-width="1.8"/>
+            </svg>
+            <svg *ngIf="showPassword" width="20" height="20" viewBox="0 0 24 24" fill="none" aria-hidden="true">
+              <path d="M1 12C3.5 7.5 7.3 5.2 12 5.2C16.7 5.2 20.5 7.5 23 12C20.5 16.5 16.7 18.8 12 18.8C7.3 18.8 3.5 16.5 1 12Z" stroke="currentColor" stroke-width="1.8"/>
+              <circle cx="12" cy="12" r="3.2" stroke="currentColor" stroke-width="1.8"/>
+              <path d="M4 20L20 4" stroke="currentColor" stroke-width="1.8"/>
+            </svg>
+          </button>
+        </div>
+      </div>
+
+      <div style="display: flex; gap: 10px;">
+        <button type="button" (click)="goBackToRoleSelection()">{{ 'register.back' | i18n }}</button>
+        <button type="submit" [disabled]="loading" style="flex: 1;">
+          {{ loading ? ('register.creating' | i18n) : ('register.submit' | i18n) }}
+        </button>
+      </div>
+    </form>
+
+    <p style="margin-top: 12px; font-size: 0.9rem;">
+      {{ 'register.already' | i18n }} <a routerLink="/login">{{ 'login.login' | i18n }}</a>
+    </p>
+  </div>
+</div>

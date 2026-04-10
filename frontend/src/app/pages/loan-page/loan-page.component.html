@@ -1,0 +1,57 @@
+<div>
+  <h1 class="page-title">{{ 'loan.title' | i18n }}</h1>
+
+  <div *ngIf="messageKey" [class]="isErrorMessage ? 'error' : 'success'">
+    {{ messageKey | i18n }}
+  </div>
+
+  <button (click)="showForm = !showForm">
+    {{ showForm ? ('common.cancel' | i18n) : ('loan.new' | i18n) }}
+  </button>
+
+  <div class="card" style="margin-top: 20px;" *ngIf="showForm">
+    <h3>{{ 'loan.formTitle' | i18n }}</h3>
+    <form (ngSubmit)="handleCreateLoan($event)">
+      <div class="form-group">
+        <label for="borrowerId">{{ 'loan.borrowerId' | i18n }}</label>
+        <input id="borrowerId" type="text" [(ngModel)]="formData.borrowerId" name="borrowerId" required>
+      </div>
+      <div class="form-group">
+        <label for="principalAmount">{{ 'loan.principal' | i18n }}</label>
+        <input
+          id="principalAmount"
+          type="number"
+          step="0.01"
+          [(ngModel)]="formData.principalAmount"
+          name="principalAmount"
+          required
+        >
+      </div>
+      <div class="form-group">
+        <label for="interestRate">{{ 'loan.interestRate' | i18n }}</label>
+        <input
+          id="interestRate"
+          type="number"
+          step="0.01"
+          [(ngModel)]="formData.interestRate"
+          name="interestRate"
+          required
+        >
+      </div>
+      <div class="form-group">
+        <label for="interestType">{{ 'loan.interestType' | i18n }}</label>
+        <select id="interestType" [(ngModel)]="formData.interestType" name="interestType">
+          <option [ngValue]="interestType.Simple">{{ 'loan.simple' | i18n }}</option>
+          <option [ngValue]="interestType.Compound">{{ 'loan.compound' | i18n }}</option>
+        </select>
+      </div>
+      <div class="form-group">
+        <label for="termMonths">{{ 'loan.termMonths' | i18n }}</label>
+        <input id="termMonths" type="number" [(ngModel)]="formData.termMonths" name="termMonths" required>
+      </div>
+      <button type="submit" [disabled]="loading">
+        {{ loading ? ('loan.creating' | i18n) : ('loan.create' | i18n) }}
+      </button>
+    </form>
+  </div>
+</div>
