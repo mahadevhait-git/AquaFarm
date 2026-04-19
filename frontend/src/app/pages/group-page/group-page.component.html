@@ -1,46 +1,138 @@
 <div>
   <h1 class="page-title">{{ 'group.title' | i18n }}</h1>
   <div class="error" *ngIf="errorMessage">{{ errorMessage }}</div>
-
-  <button (click)="showForm = !showForm">
-    {{ showForm ? ('common.cancel' | i18n) : ('group.new' | i18n) }}
-  </button>
-
-  <div class="card" style="margin-top: 20px;" *ngIf="showForm">
-    <h3>{{ 'group.formTitle' | i18n }}</h3>
-    <form (ngSubmit)="handleCreateGroup($event)">
-      <div class="form-group">
-        <label for="groupName">{{ 'group.name' | i18n }}</label>
-        <input id="groupName" type="text" [(ngModel)]="formData.name" name="name" required>
-      </div>
-      <div class="form-group">
-        <label for="description">{{ 'common.description' | i18n }}</label>
-        <textarea id="description" [(ngModel)]="formData.description" name="description" rows="4"></textarea>
-      </div>
-      <button type="submit">{{ 'group.create' | i18n }}</button>
-    </form>
-  </div>
+  <div class="success" *ngIf="successMessage">{{ successMessage }}</div>
 
   <p *ngIf="loading">{{ 'common.loading' | i18n }}</p>
 
   <div *ngIf="!loading">
-    <h2>{{ 'group.groups' | i18n }}</h2>
-    <p *ngIf="groups.length === 0">{{ 'group.none' | i18n }}</p>
-    <table class="table" *ngIf="groups.length > 0">
+    <h2>Ponds</h2>
+    <p *ngIf="ponds.length === 0">No ponds found.</p>
+    <table class="table" *ngIf="ponds.length > 0">
       <thead>
         <tr>
-          <th>{{ 'group.name' | i18n }}</th>
-          <th>{{ 'common.description' | i18n }}</th>
+          <th>Pond Name</th>
+          <th>Pond Location</th>
+          <th>Members</th>
           <th>{{ 'common.created' | i18n }}</th>
+          <th>Actions</th>
         </tr>
       </thead>
       <tbody>
-        <tr *ngFor="let group of groups">
-          <td>{{ group.name }}</td>
-          <td>{{ group.description || ('common.na' | i18n) }}</td>
-          <td>{{ group.createdAt | date }}</td>
+        <tr *ngFor="let pond of ponds">
+          <td>{{ pond.name }}</td>
+          <td>{{ pond.location || ('common.na' | i18n) }}</td>
+          <td>{{ getMemberCountForPond(pond) }}</td>
+          <td>{{ pond.createdAt | date }}</td>
+          <td>
+            <button type="button" (click)="selectPond(pond)">Manage Members</button>
+          </td>
         </tr>
       </tbody>
     </table>
+  </div>
+
+  <div class="card" *ngIf="selectedGroup" style="margin-top: 20px;">
+    <div style="display: flex; justify-content: space-between; align-items: center;">
+      <h3 style="margin: 0;">{{ selectedPond?.name || selectedGroup.name }}</h3>
+      <button
+        *ngIf="showMemberOptions"
+        type="button"
+        (click)="closeMemberOptions()"
+        title="Close member options"
+        aria-label="Close member options"
+        style="width: 34px; height: 34px; padding: 0; font-size: 20px; line-height: 1;"
+      >
+        x
+      </button>
+    </div>
+    <p><strong>Pond Location:</strong> {{ selectedPond?.location || ('common.na' | i18n) }}</p>
+    <p><strong>Total Members:</strong> {{ selectedGroup.memberCount ?? members.length }}</p>
+    <button *ngIf="!showMemberOptions" type="button" (click)="reopenMemberOptions()">Manage Members</button>
+
+    <div class="card" style="margin-top: 16px;" *ngIf="showMemberOptions">
+      <h4 style="margin-top: 0;">Current Members</h4>
+      <div style="display: flex; gap: 10px; margin-bottom: 12px;">
+        <input
+          type="text"
+          [(ngModel)]="memberSearch"
+          placeholder="Search current members by name, phone, or email"
+          style="flex: 1;"
+        >
+        <button type="button" (click)="loadMembers()">Search</button>
+      </div>
+
+      <p *ngIf="membersLoading">Loading members...</p>
+      <table class="table" *ngIf="!membersLoading && members.length > 0">
+        <thead>
+          <tr>
+            <th>Name</th>
+            <th>Phone</th>
+            <th>Email</th>
+            <th>Joined</th>
+            <th>Actions</th>
+          </tr>
+        </thead>
+        <tbody>
+          <tr *ngFor="let member of members">
+            <td>{{ member.name }}</td>
+            <td>{{ member.phoneNumber }}</td>
+            <td>{{ member.email }}</td>
+            <td>{{ member.joinedAt | date }}</td>
+            <td><button type="button" class="danger" (click)="removeMember(member)">Remove</button></td>
+          </tr>
+        </tbody>
+      </table>
+      <p *ngIf="!membersLoading && members.length === 0">No members found.</p>
+    </div>
+
+    <div class="card" style="margin-top: 16px;" *ngIf="showMemberOptions">
+      <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 8px;">
+        <h4 style="margin: 0;">Add Members</h4>
+        <button
+          *ngIf="showAddMembersSection"
+          type="button"
+          (click)="closeAddMembersSection()"
+          title="Close add members section"
+          aria-label="Close add members section"
+          style="width: 34px; height: 34px; padding: 0; font-size: 20px; line-height: 1;"
+        >
+          x
+        </button>
+      </div>
+      <button *ngIf="!showAddMembersSection" type="button" (click)="reopenAddMembersSection()">Add Members</button>
+      <ng-container *ngIf="showAddMembersSection">
+      <div style="display: flex; gap: 10px; margin-bottom: 12px;">
+        <input
+          type="text"
+          [(ngModel)]="candidateSearch"
+          placeholder="Search users to add by name, phone, or email"
+          style="flex: 1;"
+        >
+        <button type="button" (click)="loadMemberCandidates()">Search</button>
+      </div>
+
+      <p *ngIf="candidatesLoading">Searching users...</p>
+      <table class="table" *ngIf="!candidatesLoading && memberCandidates.length > 0">
+        <thead>
+          <tr>
+            <th>Name</th>
+            <th>Phone</th>
+            <th>Email</th>
+            <th>Actions</th>
+          </tr>
+        </thead>
+        <tbody>
+          <tr *ngFor="let candidate of memberCandidates">
+            <td>{{ candidate.name }}</td>
+            <td>{{ candidate.phoneNumber }}</td>
+            <td>{{ candidate.email }}</td>
+            <td><button type="button" (click)="addMember(candidate)">Add</button></td>
+          </tr>
+        </tbody>
+      </table>
+      <p *ngIf="!candidatesLoading && memberCandidates.length === 0">No users found to add.</p>
+      </ng-container>
+    </div>
   </div>
 </div>

@@ -12,12 +12,7 @@ public static class SeedData
         using var scope = serviceProvider.CreateScope();
         var context = scope.ServiceProvider.GetRequiredService<AquaFarmDbContext>();
         context.Database.EnsureCreated();
-
-        if (HasRequiredUserColumns(context) == false)
-        {
-            context.Database.EnsureDeleted();
-            context.Database.EnsureCreated();
-        }
+        EnsureContributionSchema(context);
 
         var admin = context.Users.FirstOrDefault(u => u.PhoneNumber == "9000000000");
         if (admin is null)
@@ -224,18 +219,30 @@ public static class SeedData
         var hasSeedLoan = context.Loans.Any(l => l.LenderId == admin.Id && l.BorrowerId == farmer.Id);
         if (!hasSeedLoan)
         {
+            var seededContribution = 10000m;
             context.Loans.Add(new Loan
             {
                 Id = Guid.NewGuid(),
                 LenderId = admin.Id,
                 BorrowerId = farmer.Id,
-                PrincipalAmount = 10000m,
-                InterestRate = 8.0m,
+                GroupId = group.Id,
+                PrincipalAmount = seededContribution,
+                InterestRate = 0m,
                 InterestType = InterestType.Simple,
-                TermMonths = 6,
-                OutstandingBalance = 10000m,
+                TermMonths = 0,
+                OutstandingBalance = seededContribution,
                 StartDate = DateTime.UtcNow.AddDays(-15),
                 IsClosed = false,
+                CreatedAt = DateTime.UtcNow
+            });
+
+            context.CapitalTransactions.Add(new CapitalTransaction
+            {
+                Id = Guid.NewGuid(),
+                GroupId = group.Id,
+                FarmerId = farmer.Id,
+                ContributionDate = DateTime.UtcNow.AddDays(-15),
+                Amount = seededContribution,
                 CreatedAt = DateTime.UtcNow
             });
         }
@@ -243,45 +250,156 @@ public static class SeedData
         context.SaveChanges();
     }
 
-    private static bool? HasRequiredUserColumns(AquaFarmDbContext context)
+    private static void EnsureContributionSchema(AquaFarmDbContext context)
     {
-        try
-        {
-            var connection = context.Database.GetDbConnection();
-            if (connection.State != System.Data.ConnectionState.Open)
-            {
-                connection.Open();
-            }
+        context.Database.ExecuteSqlRaw(@"
+IF COL_LENGTH('Loans', 'GroupId') IS NULL
+BEGIN
+    ALTER TABLE [Loans] ADD [GroupId] uniqueidentifier NULL;
+END;");
 
-            var requiredColumns = new[] { "PhoneNumber", "FirstName", "LastName", "Address" };
-            foreach (var column in requiredColumns)
-            {
-                using var command = connection.CreateCommand();
-                command.CommandText =
-                    $"SELECT COUNT(*) FROM INFORMATION_SCHEMA.COLUMNS WHERE TABLE_NAME = 'Users' AND COLUMN_NAME = '{column}'";
-                var result = command.ExecuteScalar();
-                var count = Convert.ToInt32(result);
-                if (count == 0)
-                {
-                    return false;
-                }
-            }
+        context.Database.ExecuteSqlRaw(@"
+IF OBJECT_ID(N'[CapitalTransactions]', N'U') IS NULL
+BEGIN
+    CREATE TABLE [CapitalTransactions](
+        [Id] uniqueidentifier NOT NULL,
+        [GroupId] uniqueidentifier NOT NULL,
+        [FarmerId] uniqueidentifier NOT NULL,
+        [ContributionDate] datetime2 NOT NULL,
+        [Amount] decimal(18,2) NOT NULL,
+        [CreatedAt] datetime2 NOT NULL,
+        CONSTRAINT [PK_CapitalTransactions] PRIMARY KEY ([Id]),
+        CONSTRAINT [FK_CapitalTransactions_Groups_GroupId] FOREIGN KEY ([GroupId]) REFERENCES [Groups]([Id]) ON DELETE CASCADE,
+        CONSTRAINT [FK_CapitalTransactions_Users_FarmerId] FOREIGN KEY ([FarmerId]) REFERENCES [Users]([Id]) ON DELETE NO ACTION
+    );
+END;");
 
-            using var groupCommand = connection.CreateCommand();
-            groupCommand.CommandText =
-                "SELECT COUNT(*) FROM INFORMATION_SCHEMA.COLUMNS WHERE TABLE_NAME = 'Groups' AND COLUMN_NAME = 'ManagerId'";
-            var groupResult = groupCommand.ExecuteScalar();
-            var groupCount = Convert.ToInt32(groupResult);
-            if (groupCount == 0)
-            {
-                return false;
-            }
+        context.Database.ExecuteSqlRaw(@"
+IF NOT EXISTS (SELECT 1 FROM sys.indexes WHERE name = 'IX_Loans_GroupId_BorrowerId' AND object_id = OBJECT_ID('Loans'))
+BEGIN
+    CREATE INDEX [IX_Loans_GroupId_BorrowerId] ON [Loans]([GroupId], [BorrowerId]);
+END;");
 
-            return true;
-        }
-        catch
-        {
-            return null;
-        }
+        context.Database.ExecuteSqlRaw(@"
+IF NOT EXISTS (SELECT 1 FROM sys.indexes WHERE name = 'UX_Loans_GroupId_BorrowerId_GroupTotals' AND object_id = OBJECT_ID('Loans'))
+BEGIN
+    CREATE UNIQUE INDEX [UX_Loans_GroupId_BorrowerId_GroupTotals]
+    ON [Loans]([GroupId], [BorrowerId])
+    WHERE [GroupId] IS NOT NULL;
+END;");
+
+        context.Database.ExecuteSqlRaw(@"
+IF NOT EXISTS (SELECT 1 FROM sys.indexes WHERE name = 'IX_CapitalTransactions_GroupId_FarmerId_ContributionDate' AND object_id = OBJECT_ID('CapitalTransactions'))
+BEGIN
+    CREATE INDEX [IX_CapitalTransactions_GroupId_FarmerId_ContributionDate]
+    ON [CapitalTransactions]([GroupId], [FarmerId], [ContributionDate]);
+END;");
+
+        context.Database.ExecuteSqlRaw(@"
+IF OBJECT_ID(N'[Expenses]', N'U') IS NULL
+BEGIN
+    CREATE TABLE [Expenses](
+        [Id] uniqueidentifier NOT NULL,
+        [PondId] uniqueidentifier NOT NULL,
+        [Amount] decimal(18,2) NOT NULL,
+        [Purpose] nvarchar(300) NOT NULL,
+        [ExpenseDate] datetime2 NOT NULL,
+        [BillFileName] nvarchar(260) NULL,
+        [BillContentType] nvarchar(120) NULL,
+        [BillStoragePath] nvarchar(500) NULL,
+        [CreatedById] uniqueidentifier NOT NULL,
+        [CreatedAt] datetime2 NOT NULL,
+        CONSTRAINT [PK_Expenses] PRIMARY KEY ([Id]),
+        CONSTRAINT [FK_Expenses_Ponds_PondId] FOREIGN KEY ([PondId]) REFERENCES [Ponds]([Id]) ON DELETE NO ACTION,
+        CONSTRAINT [FK_Expenses_Users_CreatedById] FOREIGN KEY ([CreatedById]) REFERENCES [Users]([Id]) ON DELETE NO ACTION
+    );
+END;");
+
+        context.Database.ExecuteSqlRaw(@"
+IF COL_LENGTH('Expenses', 'PondId') IS NULL
+BEGIN
+    ALTER TABLE [Expenses] ADD [PondId] uniqueidentifier NULL;
+END;");
+
+        context.Database.ExecuteSqlRaw(@"
+IF EXISTS (SELECT 1 FROM sys.columns WHERE object_id = OBJECT_ID('Expenses') AND name = 'PondId' AND is_nullable = 1)
+BEGIN
+    DECLARE @defaultPondId uniqueidentifier;
+    SELECT TOP(1) @defaultPondId = [Id] FROM [Ponds] ORDER BY [CreatedAt];
+    IF @defaultPondId IS NOT NULL
+    BEGIN
+        UPDATE [Expenses] SET [PondId] = @defaultPondId WHERE [PondId] IS NULL;
+    END
+    IF EXISTS (SELECT 1 FROM [Expenses] WHERE [PondId] IS NULL)
+    BEGIN
+        DELETE FROM [Expenses] WHERE [PondId] IS NULL;
+    END
+    ALTER TABLE [Expenses] ALTER COLUMN [PondId] uniqueidentifier NOT NULL;
+END;");
+
+        context.Database.ExecuteSqlRaw(@"
+IF NOT EXISTS (SELECT 1 FROM sys.foreign_keys WHERE name = 'FK_Expenses_Ponds_PondId')
+BEGIN
+    ALTER TABLE [Expenses]
+    ADD CONSTRAINT [FK_Expenses_Ponds_PondId] FOREIGN KEY ([PondId]) REFERENCES [Ponds]([Id]) ON DELETE NO ACTION;
+END;");
+
+        context.Database.ExecuteSqlRaw(@"
+IF NOT EXISTS (SELECT 1 FROM sys.indexes WHERE name = 'IX_Expenses_CreatedById_ExpenseDate' AND object_id = OBJECT_ID('Expenses'))
+BEGIN
+    CREATE INDEX [IX_Expenses_CreatedById_ExpenseDate] ON [Expenses]([CreatedById], [ExpenseDate]);
+END;");
+
+        context.Database.ExecuteSqlRaw(@"
+IF NOT EXISTS (SELECT 1 FROM sys.indexes WHERE name = 'IX_Expenses_PondId_ExpenseDate' AND object_id = OBJECT_ID('Expenses'))
+BEGIN
+    CREATE INDEX [IX_Expenses_PondId_ExpenseDate] ON [Expenses]([PondId], [ExpenseDate]);
+END;");
+
+        context.Database.ExecuteSqlRaw(@"
+IF OBJECT_ID(N'[PondBills]', N'U') IS NULL
+BEGIN
+    CREATE TABLE [PondBills](
+        [Id] uniqueidentifier NOT NULL,
+        [PondId] uniqueidentifier NOT NULL,
+        [FileName] nvarchar(260) NOT NULL,
+        [ContentType] nvarchar(120) NOT NULL,
+        [StoragePath] nvarchar(500) NOT NULL,
+        [UploadedById] uniqueidentifier NOT NULL,
+        [UploadedAt] datetime2 NOT NULL,
+        CONSTRAINT [PK_PondBills] PRIMARY KEY ([Id]),
+        CONSTRAINT [FK_PondBills_Ponds_PondId] FOREIGN KEY ([PondId]) REFERENCES [Ponds]([Id]) ON DELETE CASCADE,
+        CONSTRAINT [FK_PondBills_Users_UploadedById] FOREIGN KEY ([UploadedById]) REFERENCES [Users]([Id]) ON DELETE NO ACTION
+    );
+END;");
+
+        context.Database.ExecuteSqlRaw(@"
+IF NOT EXISTS (SELECT 1 FROM sys.indexes WHERE name = 'IX_PondBills_PondId_UploadedAt' AND object_id = OBJECT_ID('PondBills'))
+BEGIN
+    CREATE INDEX [IX_PondBills_PondId_UploadedAt] ON [PondBills]([PondId], [UploadedAt]);
+END;");
+
+        context.Database.ExecuteSqlRaw(@"
+IF OBJECT_ID(N'[ExpenseBills]', N'U') IS NULL
+BEGIN
+    CREATE TABLE [ExpenseBills](
+        [Id] uniqueidentifier NOT NULL,
+        [ExpenseId] uniqueidentifier NOT NULL,
+        [FileName] nvarchar(260) NOT NULL,
+        [ContentType] nvarchar(120) NOT NULL,
+        [StoragePath] nvarchar(500) NOT NULL,
+        [UploadedById] uniqueidentifier NOT NULL,
+        [UploadedAt] datetime2 NOT NULL,
+        CONSTRAINT [PK_ExpenseBills] PRIMARY KEY ([Id]),
+        CONSTRAINT [FK_ExpenseBills_Expenses_ExpenseId] FOREIGN KEY ([ExpenseId]) REFERENCES [Expenses]([Id]) ON DELETE CASCADE,
+        CONSTRAINT [FK_ExpenseBills_Users_UploadedById] FOREIGN KEY ([UploadedById]) REFERENCES [Users]([Id]) ON DELETE NO ACTION
+    );
+END;");
+
+        context.Database.ExecuteSqlRaw(@"
+IF NOT EXISTS (SELECT 1 FROM sys.indexes WHERE name = 'IX_ExpenseBills_ExpenseId_UploadedAt' AND object_id = OBJECT_ID('ExpenseBills'))
+BEGIN
+    CREATE INDEX [IX_ExpenseBills_ExpenseId_UploadedAt] ON [ExpenseBills]([ExpenseId], [UploadedAt]);
+END;");
     }
 }

@@ -20,6 +20,7 @@ public class AppUser
     public ICollection<GroupMembership> GroupMemberships { get; set; } = new List<GroupMembership>();
     public ICollection<Loan> LoansLent { get; set; } = new List<Loan>();
     public ICollection<Loan> LoansBorrowed { get; set; } = new List<Loan>();
+    public ICollection<CapitalTransaction> CapitalTransactions { get; set; } = new List<CapitalTransaction>();
 }
 
 public class Pond
@@ -48,6 +49,7 @@ public class Group
     public ICollection<GroupMembership> Members { get; set; } = new List<GroupMembership>();
     public ICollection<Pond> Ponds { get; set; } = new List<Pond>();
     public ICollection<Transaction> SharedTransactions { get; set; } = new List<Transaction>();
+    public ICollection<CapitalTransaction> CapitalTransactions { get; set; } = new List<CapitalTransaction>();
 }
 
 public class GroupMembership
@@ -80,6 +82,51 @@ public class Transaction
     public DateTime CreatedAt { get; set; } = DateTime.UtcNow;
 }
 
+public class Expense
+{
+    [Key]
+    public Guid Id { get; set; }
+    public Guid PondId { get; set; }
+    public Pond? Pond { get; set; }
+    public decimal Amount { get; set; }
+    public string Purpose { get; set; } = default!;
+    public DateTime ExpenseDate { get; set; } = DateTime.UtcNow;
+    public string? BillFileName { get; set; }
+    public string? BillContentType { get; set; }
+    public string? BillStoragePath { get; set; }
+    public Guid CreatedById { get; set; }
+    public AppUser? CreatedBy { get; set; }
+    public DateTime CreatedAt { get; set; } = DateTime.UtcNow;
+}
+
+public class PondBill
+{
+    [Key]
+    public Guid Id { get; set; }
+    public Guid PondId { get; set; }
+    public Pond? Pond { get; set; }
+    public string FileName { get; set; } = default!;
+    public string ContentType { get; set; } = default!;
+    public string StoragePath { get; set; } = default!;
+    public Guid UploadedById { get; set; }
+    public AppUser? UploadedBy { get; set; }
+    public DateTime UploadedAt { get; set; } = DateTime.UtcNow;
+}
+
+public class ExpenseBill
+{
+    [Key]
+    public Guid Id { get; set; }
+    public Guid ExpenseId { get; set; }
+    public Expense? Expense { get; set; }
+    public string FileName { get; set; } = default!;
+    public string ContentType { get; set; } = default!;
+    public string StoragePath { get; set; } = default!;
+    public Guid UploadedById { get; set; }
+    public AppUser? UploadedBy { get; set; }
+    public DateTime UploadedAt { get; set; } = DateTime.UtcNow;
+}
+
 public class Loan
 {
     [Key]
@@ -88,6 +135,8 @@ public class Loan
     public AppUser? Lender { get; set; }
     public Guid BorrowerId { get; set; }
     public AppUser? Borrower { get; set; }
+    public Guid? GroupId { get; set; }
+    public Group? Group { get; set; }
     public decimal PrincipalAmount { get; set; }
     public decimal InterestRate { get; set; }
     public InterestType InterestType { get; set; }
@@ -97,6 +146,19 @@ public class Loan
     public bool IsClosed { get; set; }
     public DateTime CreatedAt { get; set; } = DateTime.UtcNow;
     public ICollection<LoanRepayment> Repayments { get; set; } = new List<LoanRepayment>();
+}
+
+public class CapitalTransaction
+{
+    [Key]
+    public Guid Id { get; set; }
+    public Guid GroupId { get; set; }
+    public Group? Group { get; set; }
+    public Guid FarmerId { get; set; }
+    public AppUser? Farmer { get; set; }
+    public DateTime ContributionDate { get; set; } = DateTime.UtcNow;
+    public decimal Amount { get; set; }
+    public DateTime CreatedAt { get; set; } = DateTime.UtcNow;
 }
 
 public class LoanRepayment

@@ -39,7 +39,28 @@ export interface Group {
   id: string;
   name: string;
   description?: string;
+  managerId?: string;
+  managerName?: string;
+  memberCount?: number;
+  farmerCount?: number;
+  pondCount?: number;
   createdAt: Date;
+}
+
+export interface GroupMember {
+  userId: string;
+  name: string;
+  phoneNumber: string;
+  email: string;
+  pondCount: number;
+  joinedAt: Date;
+}
+
+export interface GroupMemberCandidate {
+  userId: string;
+  name: string;
+  phoneNumber: string;
+  email: string;
 }
 
 export interface Transaction {
@@ -52,6 +73,26 @@ export interface Transaction {
   groupId?: string;
   createdById: string;
   notes?: string;
+}
+
+export interface Expense {
+  id: string;
+  pondId: string;
+  pondName: string;
+  pondLocation?: string;
+  amount: number;
+  purpose: string;
+  expenseDate: Date;
+  billFileName?: string;
+  createdAt: Date;
+}
+
+export interface PondBill {
+  id: string;
+  pondId: string;
+  pondName: string;
+  fileName: string;
+  uploadedAt: Date;
 }
 
 export interface Loan {

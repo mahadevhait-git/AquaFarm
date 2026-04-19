@@ -3,7 +3,7 @@ import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
 import { HttpErrorResponse } from '@angular/common/http';
 import { firstValueFrom } from 'rxjs';
-import { Group } from '../../models';
+import { Group, GroupMember, GroupMemberCandidate, Pond } from '../../models';
 import { ApiService } from '../../services/api.service';
 import { I18nPipe } from '../../pipes/i18n.pipe';
 
@@ -15,10 +15,20 @@ import { I18nPipe } from '../../pipes/i18n.pipe';
 })
 export class GroupPageComponent implements OnInit {
   groups: Group[] = [];
-  showForm = false;
-  formData = { name: '', description: '' };
+  ponds: Pond[] = [];
+  members: GroupMember[] = [];
+  memberCandidates: GroupMemberCandidate[] = [];
+  selectedGroup: Group | null = null;
+  selectedPond: Pond | null = null;
+  showMemberOptions = false;
+  showAddMembersSection = true;
+  memberSearch = '';
+  candidateSearch = '';
   loading = true;
+  membersLoading = false;
+  candidatesLoading = false;
   errorMessage = '';
+  successMessage = '';
 
   constructor(private apiService: ApiService) {}
 
@@ -28,30 +38,186 @@ export class GroupPageComponent implements OnInit {
 
   async loadGroups(): Promise<void> {
     try {
-      const data = await firstValueFrom(this.apiService.groups.list());
-      this.groups = Array.isArray(data) ? data : [];
+      const [groupData, pondData] = await Promise.all([
+        firstValueFrom(this.apiService.groups.list()),
+        firstValueFrom(this.apiService.ponds.list()),
+      ]);
+      this.groups = Array.isArray(groupData) ? groupData : [];
+      this.ponds = Array.isArray(pondData) ? pondData : [];
+      if (this.selectedGroup) {
+        this.selectedGroup = this.groups.find(g => g.id === this.selectedGroup?.id) ?? null;
+      }
+      if (this.selectedPond) {
+        this.selectedPond = this.ponds.find(p => p.id === this.selectedPond?.id) ?? null;
+      }
       this.errorMessage = '';
     } catch (error) {
-      this.errorMessage = this.getErrorMessage(error, 'Failed to load groups.');
+      this.errorMessage = this.getErrorMessage(error, 'Failed to load ponds/groups.');
     } finally {
       this.loading = false;
     }
   }
 
-  async handleCreateGroup(event: Event): Promise<void> {
-    event.preventDefault();
+  async selectPond(pond: Pond): Promise<void> {
+    const ensuredPond = await this.ensureGroupForPond(pond);
+    if (!ensuredPond) {
+      return;
+    }
+
+    const linkedGroup = this.groups.find(g => g.id === ensuredPond.groupId);
+    if (!linkedGroup) {
+      this.errorMessage = 'Unable to link this pond to a group.';
+      return;
+    }
+
+    this.selectedPond = ensuredPond;
+    this.selectedGroup = linkedGroup;
+    this.showMemberOptions = true;
+    this.showAddMembersSection = true;
+    this.memberSearch = '';
+    this.candidateSearch = '';
+    await this.loadSelectedGroupDetails();
+  }
+
+  private async ensureGroupForPond(pond: Pond): Promise<Pond | null> {
+    if (pond.groupId) {
+      return pond;
+    }
+
     try {
-      await firstValueFrom(
-        this.apiService.groups.create({
-          name: this.formData.name,
-          description: this.formData.description,
-        }),
-      );
-      this.formData = { name: '', description: '' };
-      this.showForm = false;
+      const createdGroup = await firstValueFrom(this.apiService.groups.create({
+        name: pond.name,
+        description: pond.location ?? null,
+      }));
+
+      const linkedGroupId = createdGroup?.id;
+      if (!linkedGroupId) {
+        this.errorMessage = 'Could not create group for this pond.';
+        return null;
+      }
+
+      const updatedPondPayload = {
+        name: pond.name,
+        location: pond.location ?? '',
+        groupId: linkedGroupId,
+      };
+      await firstValueFrom(this.apiService.ponds.update(pond.id, updatedPondPayload));
+
       await this.loadGroups();
+      const refreshedPond = this.ponds.find(p => p.id === pond.id) ?? null;
+      this.successMessage = 'Pond is now ready for member management.';
+      return refreshedPond;
     } catch (error) {
-      this.errorMessage = this.getErrorMessage(error, 'Failed to create group.');
+      this.errorMessage = this.getErrorMessage(error, 'Failed to prepare pond for member management.');
+      return null;
+    }
+  }
+
+  closeMemberOptions(): void {
+    this.showMemberOptions = false;
+    this.showAddMembersSection = false;
+    this.selectedGroup = null;
+    this.selectedPond = null;
+    this.members = [];
+    this.memberCandidates = [];
+    this.memberSearch = '';
+    this.candidateSearch = '';
+  }
+
+  async reopenMemberOptions(): Promise<void> {
+    this.showMemberOptions = true;
+    this.showAddMembersSection = true;
+    await this.loadSelectedGroupDetails();
+  }
+
+  closeAddMembersSection(): void {
+    this.showAddMembersSection = false;
+  }
+
+  reopenAddMembersSection(): void {
+    this.showAddMembersSection = true;
+  }
+
+  getMemberCountForPond(pond: Pond): number {
+    const linkedGroup = this.groups.find(g => g.id === pond.groupId);
+    return linkedGroup?.memberCount ?? 0;
+  }
+
+  async loadSelectedGroupDetails(): Promise<void> {
+    await Promise.all([this.loadMembers(), this.loadMemberCandidates()]);
+  }
+
+  async loadMembers(): Promise<void> {
+    if (!this.selectedGroup) {
+      return;
+    }
+
+    this.membersLoading = true;
+    try {
+      const data = await firstValueFrom(this.apiService.groups.members(this.selectedGroup.id, this.memberSearch));
+      this.members = Array.isArray(data) ? data : [];
+      this.errorMessage = '';
+    } catch (error) {
+      this.errorMessage = this.getErrorMessage(error, 'Failed to load group members.');
+    } finally {
+      this.membersLoading = false;
+    }
+  }
+
+  async loadMemberCandidates(): Promise<void> {
+    if (!this.selectedGroup) {
+      return;
+    }
+
+    this.candidatesLoading = true;
+    try {
+      const data = await firstValueFrom(
+        this.apiService.groups.memberCandidates(this.selectedGroup.id, this.candidateSearch),
+      );
+      this.memberCandidates = Array.isArray(data) ? data : [];
+      this.errorMessage = '';
+    } catch (error) {
+      this.errorMessage = this.getErrorMessage(error, 'Failed to search member candidates.');
+    } finally {
+      this.candidatesLoading = false;
+    }
+  }
+
+  async addMember(candidate: GroupMemberCandidate): Promise<void> {
+    if (!this.selectedGroup) {
+      return;
+    }
+
+    try {
+      await firstValueFrom(this.apiService.groups.addMember(this.selectedGroup.id, candidate.userId));
+      this.successMessage = 'Member added successfully.';
+      await this.loadGroups();
+      await this.loadSelectedGroupDetails();
+      this.showMemberOptions = false;
+      this.showAddMembersSection = false;
+    } catch (error) {
+      this.errorMessage = this.getErrorMessage(error, 'Failed to add member.');
+    }
+  }
+
+  async removeMember(member: GroupMember): Promise<void> {
+    if (!this.selectedGroup) {
+      return;
+    }
+
+    const shouldRemove = window.confirm(`Remove ${member.name} from this group?`);
+    if (!shouldRemove) {
+      return;
+    }
+
+    try {
+      await firstValueFrom(this.apiService.groups.removeMember(this.selectedGroup.id, member.userId));
+      this.successMessage = 'Member removed successfully.';
+      await this.loadGroups();
+      await this.loadSelectedGroupDetails();
+      this.showMemberOptions = false;
+    } catch (error) {
+      this.errorMessage = this.getErrorMessage(error, 'Failed to remove member.');
     }
   }
 

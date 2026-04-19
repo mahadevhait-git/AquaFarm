@@ -17,6 +17,7 @@ builder.Services.AddControllers()
     });
 builder.Services.AddEndpointsApiExplorer();
 builder.Services.AddOpenApi();
+builder.Services.AddSwaggerGen();
 
 builder.Services.AddDbContext<AquaFarmDbContext>(options =>
     options.UseSqlServer(builder.Configuration.GetConnectionString("DefaultConnection") ??
@@ -68,6 +69,12 @@ if (app.Environment.IsDevelopment())
 }
 
 app.UseCors();
+app.UseSwagger();
+app.UseSwaggerUI(options =>
+{
+    options.SwaggerEndpoint("/swagger/v1/swagger.json", "AquaFarm API v1");
+    options.RoutePrefix = "swagger";
+});
 app.UseHttpsRedirection();
 app.UseAuthentication();
 app.UseAuthorization();

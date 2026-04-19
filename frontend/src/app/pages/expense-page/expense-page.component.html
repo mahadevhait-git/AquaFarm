@@ -1,0 +1,154 @@
+<div>
+  <div style="display: flex; align-items: center; justify-content: space-between; gap: 12px; margin-bottom: 12px;">
+    <h1 class="page-title" style="margin: 0;">{{ 'expense.title' | i18n }}</h1>
+    <button type="button" (click)="showEntryForm = !showEntryForm">
+      {{ showEntryForm ? ('common.cancel' | i18n) : ('expense.new' | i18n) }}
+    </button>
+  </div>
+
+  <div *ngIf="message" [class]="isErrorMessage ? 'error' : 'success'">
+    {{ message }}
+  </div>
+
+  <div class="card" style="margin-top: 20px;">
+    <div class="form-group" style="margin-bottom: 0;">
+      <label for="expensePondSelect">{{ 'expense.pond' | i18n }}</label>
+      <select id="expensePondSelect" [(ngModel)]="selectedPondId" name="expensePondSelect" (change)="onPondSelectionChange()">
+        <option value="">-- Select Pond --</option>
+        <option *ngFor="let pond of ponds" [ngValue]="pond.id">
+          {{ pond.name }} <ng-container *ngIf="pond.location">({{ pond.location }})</ng-container>
+        </option>
+      </select>
+    </div>
+  </div>
+
+  <div class="card" style="margin-top: 20px;" *ngIf="showEntryForm">
+    <h3 style="margin-top: 0;">{{ 'expense.new' | i18n }}</h3>
+
+    <div class="form-group">
+      <label for="expenseAmount">{{ 'expense.amount' | i18n }}</label>
+      <input id="expenseAmount" type="number" min="0.01" step="0.01" [(ngModel)]="amount" name="expenseAmount">
+    </div>
+
+    <div class="form-group">
+      <label for="expensePurpose">{{ 'expense.purpose' | i18n }}</label>
+      <textarea id="expensePurpose" rows="3" [(ngModel)]="purpose" name="expensePurpose"></textarea>
+    </div>
+
+    <div class="form-group">
+      <label for="expenseDate">{{ 'expense.date' | i18n }}</label>
+      <input id="expenseDate" type="date" [(ngModel)]="expenseDate" name="expenseDate">
+    </div>
+
+    <div class="form-group">
+      <label for="expenseBill">{{ 'expense.bill' | i18n }}</label>
+      <input #billInput id="expenseBill" type="file" multiple (change)="onBillFileSelected($event)">
+      <div style="margin-top: 8px; display: flex; align-items: center; gap: 8px;" *ngIf="selectedBillFiles.length > 0">
+        <span>{{ selectedBillFiles.length }} file(s) selected</span>
+        <button type="button" class="danger" (click)="clearBillFile(billInput)">{{ 'expense.removeBill' | i18n }}</button>
+      </div>
+    </div>
+
+    <button type="button" (click)="saveExpense()" [disabled]="saving">
+      {{ saving ? ('expense.saving' | i18n) : ('expense.save' | i18n) }}
+    </button>
+  </div>
+
+  <div class="card">
+    <h3 style="margin-top: 0;">{{ 'expense.listTitle' | i18n }}</h3>
+    <p *ngIf="loading">{{ 'common.loading' | i18n }}</p>
+    <p *ngIf="!loading && expenses.length === 0">{{ 'expense.none' | i18n }}</p>
+
+    <table class="table" *ngIf="!loading && expenses.length > 0">
+      <thead>
+        <tr>
+          <th>{{ 'expense.pond' | i18n }}</th>
+          <th>{{ 'expense.amount' | i18n }}</th>
+          <th>{{ 'expense.purpose' | i18n }}</th>
+          <th>{{ 'expense.date' | i18n }}</th>
+          <th>{{ 'expense.bill' | i18n }}</th>
+          <th>{{ 'loan.actions' | i18n }}</th>
+        </tr>
+      </thead>
+      <tbody>
+        <ng-container *ngFor="let expense of expenses">
+          <tr>
+            <td>{{ expense.pondName }}<span *ngIf="expense.pondLocation"> ({{ expense.pondLocation }})</span></td>
+            <td>{{ expense.amount | number:'1.2-2' }}</td>
+            <td>{{ expense.purpose }}</td>
+            <td>{{ expense.expenseDate | date:'mediumDate' }}</td>
+            <td>{{ expense.billFileName || ('common.na' | i18n) }}</td>
+            <td style="display: flex; gap: 8px; flex-wrap: wrap;">
+              <button
+                type="button"
+                (click)="toggleExpenseBills(expense)"
+              >
+                {{ openBillsForExpenseId === expense.id ? ('expense.hideBills' | i18n) : ('expense.showBills' | i18n) }}
+              </button>
+
+              <button
+                type="button"
+                *ngIf="expense.billFileName"
+                (click)="downloadBill(expense)"
+                [disabled]="downloadingBillId === expense.id"
+              >
+                {{ downloadingBillId === expense.id ? ('common.loading' | i18n) : ('expense.downloadBill' | i18n) }}
+              </button>
+            </td>
+          </tr>
+
+          <tr *ngIf="openBillsForExpenseId === expense.id">
+            <td colspan="6">
+              <div class="card" style="margin: 8px 0 0 0;">
+                <h3 style="margin-top: 0;">{{ 'expense.billsTitle' | i18n }}</h3>
+
+                <div class="form-group">
+                  <label [for]="'expenseBillUpload-' + expense.id">{{ 'expense.bill' | i18n }}</label>
+                  <input [id]="'expenseBillUpload-' + expense.id" #expenseBillInput type="file" multiple (change)="onExpenseBillsSelected($event)">
+                </div>
+
+                <div style="margin-top: 8px; margin-bottom: 12px;" *ngIf="selectedExpenseBillFiles.length > 0">
+                  <p style="margin: 0 0 8px 0;">{{ selectedExpenseBillFiles.length }} file(s) selected</p>
+                  <div style="display: flex; gap: 8px;">
+                    <button type="button" (click)="uploadExpenseBills(expenseBillInput)" [disabled]="uploadingExpenseBills">
+                      {{ uploadingExpenseBills ? ('expense.saving' | i18n) : ('expense.uploadBills' | i18n) }}
+                    </button>
+                    <button type="button" class="danger" (click)="clearExpenseBillFiles(expenseBillInput)">{{ 'common.cancel' | i18n }}</button>
+                  </div>
+                </div>
+
+                <p *ngIf="loadingExpenseBills">{{ 'common.loading' | i18n }}</p>
+                <p *ngIf="!loadingExpenseBills && expenseBills.length === 0">{{ 'expense.noBills' | i18n }}</p>
+
+                <table class="table" *ngIf="!loadingExpenseBills && expenseBills.length > 0">
+                  <thead>
+                    <tr>
+                      <th>{{ 'expense.bill' | i18n }}</th>
+                      <th>{{ 'common.created' | i18n }}</th>
+                      <th>{{ 'loan.actions' | i18n }}</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    <tr *ngFor="let bill of expenseBills">
+                      <td>{{ bill.fileName }}</td>
+                      <td>{{ bill.uploadedAt | date:'medium' }}</td>
+                      <td>
+                        <button
+                          type="button"
+                          (click)="downloadExpenseBill(bill)"
+                          [disabled]="downloadingExpenseBillId === (bill.id || bill.expenseId)"
+                        >
+                          {{ downloadingExpenseBillId === (bill.id || bill.expenseId) ? ('common.loading' | i18n) : ('expense.downloadBill' | i18n) }}
+                        </button>
+                      </td>
+                    </tr>
+                  </tbody>
+                </table>
+              </div>
+            </td>
+          </tr>
+        </ng-container>
+      </tbody>
+    </table>
+  </div>
+</div>

@@ -66,6 +66,51 @@ export class ApiService {
 
     create: (group: any): Observable<any> =>
       this.http.post(`${this.apiBaseUrl}/groups`, group, { headers: this.authHeaders() }),
+
+    members: (groupId: string, search = ''): Observable<any> =>
+      this.http.get(`${this.apiBaseUrl}/groups/${groupId}/members`, {
+        headers: this.authHeaders(),
+        params: search ? { search } : {},
+      }),
+
+    memberCandidates: (groupId: string, search = ''): Observable<any> =>
+      this.http.get(`${this.apiBaseUrl}/groups/${groupId}/member-candidates`, {
+        headers: this.authHeaders(),
+        params: search ? { search } : {},
+      }),
+
+    addMember: (groupId: string, userId: string): Observable<any> =>
+      this.http.post(`${this.apiBaseUrl}/groups/${groupId}/members`, { userId }, { headers: this.authHeaders() }),
+
+    removeMember: (groupId: string, userId: string): Observable<any> =>
+      this.http.delete(`${this.apiBaseUrl}/groups/${groupId}/members/${userId}`, { headers: this.authHeaders() }),
+
+    contributions: (groupId: string): Observable<any> =>
+      this.http.get(`${this.apiBaseUrl}/groups/${groupId}/contributions`, { headers: this.authHeaders() }),
+
+    recordContribution: (groupId: string, userId: string, amount: number): Observable<any> =>
+      this.http.post(`${this.apiBaseUrl}/groups/${groupId}/contributions/record`, { userId, amount }, {
+        headers: this.authHeaders(),
+      }),
+
+    upsertContribution: (groupId: string, userId: string, amount: number): Observable<any> =>
+      this.http.put(`${this.apiBaseUrl}/groups/${groupId}/contributions`, { userId, amount }, {
+        headers: this.authHeaders(),
+      }),
+
+    deleteContribution: (groupId: string, userId: string): Observable<any> =>
+      this.http.delete(`${this.apiBaseUrl}/groups/${groupId}/contributions/${userId}`, { headers: this.authHeaders() }),
+
+    capitalTransactions: (groupId: string, farmerId?: string): Observable<any> =>
+      this.http.get(`${this.apiBaseUrl}/groups/${groupId}/capital-transactions`, {
+        headers: this.authHeaders(),
+        params: farmerId ? { farmerId } : {},
+      }),
+
+    updateCapitalTransactionAmount: (groupId: string, transactionId: string, amount: number): Observable<any> =>
+      this.http.put(`${this.apiBaseUrl}/groups/${groupId}/capital-transactions/${transactionId}`, { amount }, {
+        headers: this.authHeaders(),
+      }),
   };
 
   loans = {
@@ -79,5 +124,68 @@ export class ApiService {
 
     summary: (loanId: string): Observable<any> =>
       this.http.get(`${this.apiBaseUrl}/loans/${loanId}/summary`, { headers: this.authHeaders() }),
+  };
+
+  expenses = {
+    list: (pondId?: string): Observable<any> =>
+      this.http.get(`${this.apiBaseUrl}/expenses`, {
+        headers: this.authHeaders(),
+        params: pondId ? { pondId } : {},
+      }),
+
+    create: (payload: { pondId: string; amount: number; purpose: string; date: string; bills?: File[] | null }): Observable<any> => {
+      const formData = new FormData();
+      formData.append('pondId', payload.pondId);
+      formData.append('amount', payload.amount.toString());
+      formData.append('purpose', payload.purpose);
+      formData.append('date', payload.date);
+      if (payload.bills && payload.bills.length > 0) {
+        for (const bill of payload.bills) {
+          formData.append('bills', bill);
+        }
+      }
+
+      return this.http.post(`${this.apiBaseUrl}/expenses`, formData, { headers: this.authHeaders() });
+    },
+
+    downloadBill: (expenseId: string): Observable<Blob> =>
+      this.http.get(`${this.apiBaseUrl}/expenses/${expenseId}/bill`, {
+        headers: this.authHeaders(),
+        responseType: 'blob',
+      }),
+
+    expenseBills: (expenseId: string): Observable<any> =>
+      this.http.get(`${this.apiBaseUrl}/expenses/${expenseId}/bills`, { headers: this.authHeaders() }),
+
+    uploadExpenseBill: (expenseId: string, bill: File): Observable<any> => {
+      const formData = new FormData();
+      formData.append('bill', bill);
+      return this.http.post(`${this.apiBaseUrl}/expenses/${expenseId}/bills`, formData, {
+        headers: this.authHeaders(),
+      });
+    },
+
+    downloadExpenseBill: (billId: string): Observable<Blob> =>
+      this.http.get(`${this.apiBaseUrl}/expenses/expense-bills/${billId}/download`, {
+        headers: this.authHeaders(),
+        responseType: 'blob',
+      }),
+
+    pondBills: (pondId: string): Observable<any> =>
+      this.http.get(`${this.apiBaseUrl}/expenses/ponds/${pondId}/bills`, { headers: this.authHeaders() }),
+
+    uploadPondBill: (pondId: string, bill: File): Observable<any> => {
+      const formData = new FormData();
+      formData.append('bill', bill);
+      return this.http.post(`${this.apiBaseUrl}/expenses/ponds/${pondId}/bills`, formData, {
+        headers: this.authHeaders(),
+      });
+    },
+
+    downloadPondBill: (billId: string): Observable<Blob> =>
+      this.http.get(`${this.apiBaseUrl}/expenses/pond-bills/${billId}/download`, {
+        headers: this.authHeaders(),
+        responseType: 'blob',
+      }),
   };
 }

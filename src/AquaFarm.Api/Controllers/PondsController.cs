@@ -1,10 +1,14 @@
 using AquaFarm.Core.Entities;
+using AquaFarm.Core.Dtos;
 using AquaFarm.Infrastructure.Data;
+using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
+using System.Security.Claims;
 
 namespace AquaFarm.Api.Controllers;
 
+[Authorize]
 [ApiController]
 [Route("api/[controller]")]
 public class PondsController : ControllerBase
@@ -57,25 +61,38 @@ public class PondsController : ControllerBase
     }
 
     [HttpPost]
-    public async Task<IActionResult> Create([FromBody] Pond pond)
+    public async Task<IActionResult> Create([FromBody] PondCreateRequest request)
     {
-        var ownerExists = await _dbContext.Users.AnyAsync(u => u.Id == pond.OwnerId);
-        if (!ownerExists)
+        if (string.IsNullOrWhiteSpace(request.Name))
         {
-            return BadRequest("OwnerId does not reference an existing user.");
+            return BadRequest("Pond name is required.");
         }
 
-        if (pond.GroupId.HasValue)
+        var loggedInUser = await GetLoggedInUser();
+        if (loggedInUser is null)
         {
-            var groupExists = await _dbContext.Groups.AnyAsync(g => g.Id == pond.GroupId.Value);
+            return Unauthorized("Session is stale. Please logout and login again.");
+        }
+
+        if (request.GroupId.HasValue)
+        {
+            var groupExists = await _dbContext.Groups.AnyAsync(g => g.Id == request.GroupId.Value);
             if (!groupExists)
             {
                 return BadRequest("GroupId does not reference an existing group.");
             }
         }
 
-        pond.Id = Guid.NewGuid();
-        pond.CreatedAt = DateTime.UtcNow;
+        var pond = new Pond
+        {
+            Id = Guid.NewGuid(),
+            Name = request.Name.Trim(),
+            Location = request.Location?.Trim(),
+            OwnerId = loggedInUser.Id,
+            GroupId = request.GroupId,
+            CreatedAt = DateTime.UtcNow
+        };
+
         _dbContext.Ponds.Add(pond);
         await _dbContext.SaveChangesAsync();
         return CreatedAtAction(nameof(Get), new { id = pond.Id }, new
@@ -90,7 +107,7 @@ public class PondsController : ControllerBase
     }
 
     [HttpPut("{id}")]
-    public async Task<IActionResult> Update(Guid id, [FromBody] Pond update)
+    public async Task<IActionResult> Update(Guid id, [FromBody] PondUpdateRequest update)
     {
         var existing = await _dbContext.Ponds.FindAsync(id);
         if (existing is null)
@@ -98,10 +115,9 @@ public class PondsController : ControllerBase
             return NotFound();
         }
 
-        var ownerExists = await _dbContext.Users.AnyAsync(u => u.Id == update.OwnerId);
-        if (!ownerExists)
+        if (string.IsNullOrWhiteSpace(update.Name))
         {
-            return BadRequest("OwnerId does not reference an existing user.");
+            return BadRequest("Pond name is required.");
         }
 
         if (update.GroupId.HasValue)
@@ -113,10 +129,9 @@ public class PondsController : ControllerBase
             }
         }
 
-        existing.Name = update.Name;
-        existing.Location = update.Location;
+        existing.Name = update.Name.Trim();
+        existing.Location = update.Location?.Trim();
         existing.GroupId = update.GroupId;
-        existing.OwnerId = update.OwnerId;
         await _dbContext.SaveChangesAsync();
 
         return NoContent();
@@ -134,5 +149,26 @@ public class PondsController : ControllerBase
         _dbContext.Ponds.Remove(existing);
         await _dbContext.SaveChangesAsync();
         return NoContent();
+    }
+
+    private async Task<AppUser?> GetLoggedInUser()
+    {
+        var nameIdentifier = User.FindFirstValue(ClaimTypes.NameIdentifier);
+        if (!string.IsNullOrWhiteSpace(nameIdentifier) && Guid.TryParse(nameIdentifier, out var userId))
+        {
+            var byId = await _dbContext.Users.FirstOrDefaultAsync(u => u.Id == userId);
+            if (byId is not null)
+            {
+                return byId;
+            }
+        }
+
+        var userName = User.FindFirstValue(ClaimTypes.Name) ?? User.FindFirstValue("sub");
+        if (string.IsNullOrWhiteSpace(userName))
+        {
+            return null;
+        }
+
+        return await _dbContext.Users.FirstOrDefaultAsync(u => u.UserName == userName);
     }
 }

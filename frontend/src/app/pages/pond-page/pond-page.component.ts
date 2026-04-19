@@ -1,6 +1,7 @@
 import { Component, OnInit } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
+import { HttpErrorResponse } from '@angular/common/http';
 import { firstValueFrom } from 'rxjs';
 import { Pond } from '../../models';
 import { ApiService } from '../../services/api.service';
@@ -15,9 +16,11 @@ import { I18nPipe } from '../../pipes/i18n.pipe';
 export class PondPageComponent implements OnInit {
   ponds: Pond[] = [];
   showForm = false;
-  formData = { name: '', location: '', ownerId: '' };
+  isEditMode = false;
+  editingPondId = '';
+  formData = { name: '', location: '' };
   loading = true;
-  errorKey = '';
+  errorMessage = '';
 
   constructor(private apiService: ApiService) {}
 
@@ -29,9 +32,9 @@ export class PondPageComponent implements OnInit {
     try {
       const data = await firstValueFrom(this.apiService.ponds.list());
       this.ponds = Array.isArray(data) ? data : [];
-      this.errorKey = '';
-    } catch {
-      this.errorKey = 'pond.failedLoad';
+      this.errorMessage = '';
+    } catch (error) {
+      this.errorMessage = this.getErrorMessage(error, 'Failed to load ponds.');
     } finally {
       this.loading = false;
     }
@@ -40,12 +43,75 @@ export class PondPageComponent implements OnInit {
   async handleCreatePond(event: Event): Promise<void> {
     event.preventDefault();
     try {
-      await firstValueFrom(this.apiService.ponds.create(this.formData));
-      this.formData = { name: '', location: '', ownerId: '' };
-      this.showForm = false;
+      if (this.isEditMode && this.editingPondId) {
+        await firstValueFrom(this.apiService.ponds.update(this.editingPondId, this.formData));
+      } else {
+        await firstValueFrom(this.apiService.ponds.create(this.formData));
+      }
+
+      this.resetForm();
       await this.loadPonds();
-    } catch {
-      this.errorKey = 'pond.failedCreate';
+    } catch (error) {
+      this.errorMessage = this.getErrorMessage(error, this.isEditMode ? 'Failed to update pond.' : 'Failed to create pond.');
     }
+  }
+
+  startCreate(): void {
+    this.resetForm();
+    this.showForm = true;
+  }
+
+  startEdit(pond: Pond): void {
+    this.showForm = true;
+    this.isEditMode = true;
+    this.editingPondId = pond.id;
+    this.formData = {
+      name: pond.name ?? '',
+      location: pond.location ?? '',
+    };
+    this.errorMessage = '';
+  }
+
+  async deletePond(pond: Pond): Promise<void> {
+    const shouldDelete = window.confirm(`Delete pond "${pond.name}"?`);
+    if (!shouldDelete) {
+      return;
+    }
+
+    try {
+      await firstValueFrom(this.apiService.ponds.delete(pond.id));
+      await this.loadPonds();
+    } catch (error) {
+      this.errorMessage = this.getErrorMessage(error, 'Failed to delete pond.');
+    }
+  }
+
+  cancelForm(): void {
+    this.resetForm();
+  }
+
+  private resetForm(): void {
+    this.showForm = false;
+    this.isEditMode = false;
+    this.editingPondId = '';
+    this.formData = { name: '', location: '' };
+  }
+
+  private getErrorMessage(error: unknown, fallback: string): string {
+    if (error instanceof HttpErrorResponse) {
+      if (typeof error.error === 'string' && error.error.trim()) {
+        return error.error;
+      }
+
+      if (error.error?.message && typeof error.error.message === 'string') {
+        return error.error.message;
+      }
+
+      if (error.status === 0) {
+        return 'Server is unreachable. Please check if the backend is running.';
+      }
+    }
+
+    return fallback;
   }
 }

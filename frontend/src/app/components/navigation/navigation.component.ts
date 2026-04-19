@@ -40,8 +40,7 @@ export class NavigationComponent {
   }
 
   logout(): void {
-    this.authService.removeToken();
-    this.authService.setRole('');
+    this.authService.clearSession();
     this.router.navigate(['/login']);
   }
 }

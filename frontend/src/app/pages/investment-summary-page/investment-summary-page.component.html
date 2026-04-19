@@ -1,0 +1,39 @@
+<div>
+  <button type="button" (click)="goBack()" style="margin-bottom: 12px;">Back</button>
+  <h1 class="page-title">Investment Summary</h1>
+  <div class="error" *ngIf="errorMessage">{{ errorMessage }}</div>
+
+  <div class="card">
+    <div class="form-group">
+      <label for="summaryGroup">Select Pond</label>
+      <select
+        id="summaryGroup"
+        [(ngModel)]="selectedPondId"
+        name="summaryGroup"
+        (change)="onGroupChange()"
+        [disabled]="loadingGroups || ponds.length === 0"
+      >
+        <option *ngFor="let pond of ponds" [ngValue]="pond.id">{{ pond.name }}</option>
+      </select>
+    </div>
+  </div>
+
+  <p *ngIf="loadingRows">{{ 'common.loading' | i18n }}</p>
+  <div *ngIf="!loadingRows">
+    <table class="table" *ngIf="rows.length > 0">
+      <thead>
+        <tr>
+          <th>Farmer Name</th>
+          <th>Total Investment</th>
+        </tr>
+      </thead>
+      <tbody>
+        <tr *ngFor="let row of rows">
+          <td>{{ row.name }}</td>
+          <td>{{ row.investedAmount | number:'1.2-2' }}</td>
+        </tr>
+      </tbody>
+    </table>
+    <p *ngIf="rows.length === 0">No farmers found for this pond.</p>
+  </div>
+</div>

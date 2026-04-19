@@ -15,7 +15,17 @@ export class AuthService {
   }
 
   isAuthenticated(): boolean {
-    return !!localStorage.getItem('token');
+    const token = this.getToken();
+    if (!token) {
+      return false;
+    }
+
+    if (this.isTokenExpired(token)) {
+      this.clearSession();
+      return false;
+    }
+
+    return true;
   }
 
   getRole(): string | null {
@@ -24,6 +34,11 @@ export class AuthService {
 
   setRole(role: string): void {
     localStorage.setItem('userRole', role);
+  }
+
+  clearSession(): void {
+    localStorage.removeItem('token');
+    localStorage.removeItem('userRole');
   }
 
   getUserName(): string {
@@ -55,6 +70,18 @@ export class AuthService {
     } catch {
       return null;
     }
+  }
+
+  private isTokenExpired(token: string): boolean {
+    const payload = this.parseJwtPayload(token);
+    const exp = payload?.['exp'];
+
+    if (typeof exp !== 'number') {
+      return true;
+    }
+
+    const nowInSeconds = Math.floor(Date.now() / 1000);
+    return exp <= nowInSeconds;
   }
 
   private formatDisplayUserName(userName: string): string {
