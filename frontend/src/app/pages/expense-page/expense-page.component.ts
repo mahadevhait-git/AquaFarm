@@ -15,6 +15,11 @@ type ExpenseBillRow = {
   isLegacy?: boolean;
 };
 
+type BillPreview = {
+  url: string;
+  kind: 'image' | 'pdf' | 'other';
+};
+
 @Component({
   selector: 'app-expense-page',
   standalone: true,
@@ -33,14 +38,18 @@ export class ExpensePageComponent {
   expenses: Expense[] = [];
   loading = false;
   saving = false;
+  deletingExpenseId: string | null = null;
   downloadingBillId: string | null = null;
 
   openBillsForExpenseId: string | null = null;
   expenseBills: ExpenseBillRow[] = [];
   loadingExpenseBills = false;
-  uploadingExpenseBills = false;
-  selectedExpenseBillFiles: File[] = [];
   downloadingExpenseBillId: string | null = null;
+  billPreviewByKey: Record<string, BillPreview> = {};
+  loadingBillPreviewKeys = new Set<string>();
+  largePreviewUrl: string | null = null;
+  largePreviewFileName = '';
+  largePreviewScale = 1;
 
   message = '';
   isErrorMessage = false;
@@ -49,6 +58,10 @@ export class ExpensePageComponent {
 
   async ngOnInit(): Promise<void> {
     await this.loadPonds();
+  }
+
+  ngOnDestroy(): void {
+    this.clearBillPreviews();
   }
 
   async loadPonds(): Promise<void> {
@@ -82,6 +95,13 @@ export class ExpensePageComponent {
   }
 
   async onPondSelectionChange(): Promise<void> {
+    if (!this.selectedPondId) {
+      this.closeExpenseBillsPanel();
+      this.expenses = [];
+      this.loading = false;
+      return;
+    }
+
     await this.loadExpenses();
   }
 
@@ -141,6 +161,27 @@ export class ExpensePageComponent {
     }
   }
 
+  async removeExpense(expense: Expense): Promise<void> {
+    const confirmed = window.confirm('Are you sure you want to remove this expense?');
+    if (!confirmed) {
+      return;
+    }
+
+    this.deletingExpenseId = expense.id;
+    try {
+      await firstValueFrom(this.apiService.expenses.delete(expense.id));
+      if (this.openBillsForExpenseId === expense.id) {
+        this.closeExpenseBillsPanel();
+      }
+      this.setMessage('Expense removed successfully.', false);
+      await this.loadExpenses();
+    } catch (error) {
+      this.setMessage(this.getErrorMessage(error, 'Failed to remove expense.'), true);
+    } finally {
+      this.deletingExpenseId = null;
+    }
+  }
+
   async downloadBill(expense: Expense): Promise<void> {
     this.downloadingBillId = expense.id;
     try {
@@ -160,24 +201,13 @@ export class ExpensePageComponent {
     }
 
     this.openBillsForExpenseId = expense.id;
-    this.selectedExpenseBillFiles = [];
     await this.loadExpenseBills(expense.id);
   }
 
   closeExpenseBillsPanel(): void {
+    this.clearBillPreviews();
     this.openBillsForExpenseId = null;
     this.expenseBills = [];
-    this.selectedExpenseBillFiles = [];
-  }
-
-  onExpenseBillsSelected(event: Event): void {
-    const input = event.target as HTMLInputElement;
-    this.selectedExpenseBillFiles = input.files ? Array.from(input.files) : [];
-  }
-
-  clearExpenseBillFiles(inputElement: HTMLInputElement): void {
-    this.selectedExpenseBillFiles = [];
-    inputElement.value = '';
   }
 
   async loadExpenseBills(expenseId: string): Promise<void> {
@@ -185,37 +215,14 @@ export class ExpensePageComponent {
     try {
       const data = await firstValueFrom(this.apiService.expenses.expenseBills(expenseId));
       this.expenseBills = Array.isArray(data) ? data : [];
+      await this.loadBillPreviews(this.expenseBills);
       this.setMessage('', false);
     } catch (error) {
       this.setMessage(this.getErrorMessage(error, 'Failed to load expense bills.'), true);
       this.expenseBills = [];
+      this.clearBillPreviews();
     } finally {
       this.loadingExpenseBills = false;
-    }
-  }
-
-  async uploadExpenseBills(inputElement: HTMLInputElement): Promise<void> {
-    if (!this.openBillsForExpenseId) {
-      return;
-    }
-
-    if (this.selectedExpenseBillFiles.length === 0) {
-      this.setMessage('Please choose at least one bill file.', true);
-      return;
-    }
-
-    this.uploadingExpenseBills = true;
-    try {
-      for (const file of this.selectedExpenseBillFiles) {
-        await firstValueFrom(this.apiService.expenses.uploadExpenseBill(this.openBillsForExpenseId, file));
-      }
-      this.clearExpenseBillFiles(inputElement);
-      this.setMessage('Expense bills uploaded successfully.', false);
-      await this.loadExpenseBills(this.openBillsForExpenseId);
-    } catch (error) {
-      this.setMessage(this.getErrorMessage(error, 'Failed to upload expense bills.'), true);
-    } finally {
-      this.uploadingExpenseBills = false;
     }
   }
 
@@ -231,6 +238,83 @@ export class ExpensePageComponent {
     } finally {
       this.downloadingExpenseBillId = null;
     }
+  }
+
+  getBillPreview(bill: ExpenseBillRow): BillPreview | null {
+    return this.billPreviewByKey[this.getBillKey(bill)] || null;
+  }
+
+  isBillPreviewLoading(bill: ExpenseBillRow): boolean {
+    return this.loadingBillPreviewKeys.has(this.getBillKey(bill));
+  }
+
+  openLargePreview(previewUrl: string, fileName: string): void {
+    this.largePreviewUrl = previewUrl;
+    this.largePreviewFileName = fileName;
+    this.largePreviewScale = 1;
+  }
+
+  closeLargePreview(): void {
+    this.largePreviewUrl = null;
+    this.largePreviewFileName = '';
+    this.largePreviewScale = 1;
+  }
+
+  zoomInLargePreview(): void {
+    this.largePreviewScale = Math.min(4, Number((this.largePreviewScale + 0.25).toFixed(2)));
+  }
+
+  zoomOutLargePreview(): void {
+    this.largePreviewScale = Math.max(0.5, Number((this.largePreviewScale - 0.25).toFixed(2)));
+  }
+
+  private async loadBillPreviews(bills: ExpenseBillRow[]): Promise<void> {
+    this.clearBillPreviews();
+    if (bills.length === 0) {
+      return;
+    }
+
+    await Promise.all(bills.map(async bill => {
+      const key = this.getBillKey(bill);
+      this.loadingBillPreviewKeys.add(key);
+
+      try {
+        const blob = bill.isLegacy
+          ? await firstValueFrom(this.apiService.expenses.downloadBill(bill.expenseId))
+          : await firstValueFrom(this.apiService.expenses.downloadExpenseBill(bill.id));
+        const kind = this.getPreviewKind(blob.type, bill.fileName);
+        const url = window.URL.createObjectURL(blob);
+        this.billPreviewByKey[key] = { url, kind };
+      } catch {
+        // keep download-only behavior if preview fetch fails
+      } finally {
+        this.loadingBillPreviewKeys.delete(key);
+      }
+    }));
+  }
+
+  private clearBillPreviews(): void {
+    Object.values(this.billPreviewByKey).forEach(preview => {
+      window.URL.revokeObjectURL(preview.url);
+    });
+    this.billPreviewByKey = {};
+    this.loadingBillPreviewKeys.clear();
+  }
+
+  private getBillKey(bill: ExpenseBillRow): string {
+    return `${bill.isLegacy ? 'legacy' : 'bill'}:${bill.id}:${bill.expenseId}:${bill.fileName}`;
+  }
+
+  private getPreviewKind(mimeType: string, fileName: string): BillPreview['kind'] {
+    const normalizedMime = (mimeType || '').toLowerCase();
+    const normalizedName = (fileName || '').toLowerCase();
+    if (normalizedMime.startsWith('image/') || /\.(jpg|jpeg|png|gif|webp|bmp|svg)$/.test(normalizedName)) {
+      return 'image';
+    }
+    if (normalizedMime === 'application/pdf' || normalizedName.endsWith('.pdf')) {
+      return 'pdf';
+    }
+    return 'other';
   }
 
   private downloadBlob(blob: Blob, fileName: string): void {

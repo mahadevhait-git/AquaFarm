@@ -114,11 +114,7 @@ public class ExpensesController : ControllerBase
             return BadRequest("Selected pond does not exist.");
         }
 
-        var canManagePond = loggedInUser.Role == UserRole.Admin
-            || pond.OwnerId == loggedInUser.Id
-            || (loggedInUser.Role == UserRole.GroupManager && pond.Group != null && pond.Group.ManagerId == loggedInUser.Id);
-
-        if (!canManagePond)
+        if (!CanManagePond(loggedInUser, pond))
         {
             return Forbid();
         }
@@ -400,6 +396,50 @@ public class ExpensesController : ControllerBase
             fileDownloadName: expense.BillFileName);
     }
 
+    [HttpDelete("{expenseId:guid}")]
+    public async Task<IActionResult> DeleteExpense(Guid expenseId)
+    {
+        var loggedInUser = await GetLoggedInUser();
+        if (loggedInUser is null)
+        {
+            return Unauthorized("Session is stale. Please logout and login again.");
+        }
+
+        var expense = await _dbContext.Expenses
+            .Include(e => e.Pond)
+            .ThenInclude(p => p!.Group)
+            .FirstOrDefaultAsync(e => e.Id == expenseId);
+        if (expense is null)
+        {
+            return NotFound("Expense not found.");
+        }
+
+        if (!CanAccessExpense(loggedInUser, expense))
+        {
+            return Forbid();
+        }
+
+        var expenseBills = await _dbContext.ExpenseBills
+            .Where(b => b.ExpenseId == expenseId)
+            .ToListAsync();
+
+        foreach (var bill in expenseBills)
+        {
+            DeleteFileIfExists(bill.StoragePath);
+        }
+
+        if (!string.IsNullOrWhiteSpace(expense.BillStoragePath))
+        {
+            DeleteFileIfExists(expense.BillStoragePath);
+        }
+
+        _dbContext.ExpenseBills.RemoveRange(expenseBills);
+        _dbContext.Expenses.Remove(expense);
+        await _dbContext.SaveChangesAsync();
+
+        return NoContent();
+    }
+
     [HttpGet("{expenseId:guid}/bills")]
     public async Task<IActionResult> GetExpenseBills(Guid expenseId)
     {
@@ -433,7 +473,12 @@ public class ExpensesController : ControllerBase
                 b.UploadedAt))
             .ToListAsync();
 
-        if (!string.IsNullOrWhiteSpace(expense.BillFileName) && !string.IsNullOrWhiteSpace(expense.BillStoragePath))
+        // Legacy single-bill fields are kept for backward compatibility.
+        // Add legacy row only when there are no explicit ExpenseBills rows,
+        // otherwise the first uploaded file appears twice.
+        if (bills.Count == 0
+            && !string.IsNullOrWhiteSpace(expense.BillFileName)
+            && !string.IsNullOrWhiteSpace(expense.BillStoragePath))
         {
             bills.Insert(0, new ExpenseBillDto(
                 Guid.Empty,
@@ -615,6 +660,20 @@ public class ExpensesController : ControllerBase
         }
 
         return user.Role == UserRole.GroupManager && expense.Pond?.Group != null && expense.Pond.Group.ManagerId == user.Id;
+    }
+
+    private void DeleteFileIfExists(string? relativePath)
+    {
+        if (string.IsNullOrWhiteSpace(relativePath))
+        {
+            return;
+        }
+
+        var absolutePath = Path.Combine(_hostEnvironment.ContentRootPath, relativePath);
+        if (System.IO.File.Exists(absolutePath))
+        {
+            System.IO.File.Delete(absolutePath);
+        }
     }
 }
 

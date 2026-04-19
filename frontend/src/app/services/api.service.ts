@@ -148,6 +148,9 @@ export class ApiService {
       return this.http.post(`${this.apiBaseUrl}/expenses`, formData, { headers: this.authHeaders() });
     },
 
+    delete: (expenseId: string): Observable<any> =>
+      this.http.delete(`${this.apiBaseUrl}/expenses/${expenseId}`, { headers: this.authHeaders() }),
+
     downloadBill: (expenseId: string): Observable<Blob> =>
       this.http.get(`${this.apiBaseUrl}/expenses/${expenseId}/bill`, {
         headers: this.authHeaders(),

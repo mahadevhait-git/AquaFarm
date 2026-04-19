@@ -54,7 +54,7 @@
     </button>
   </div>
 
-  <div class="card">
+  <div class="card" *ngIf="selectedPondId">
     <h3 style="margin-top: 0;">{{ 'expense.listTitle' | i18n }}</h3>
     <p *ngIf="loading">{{ 'common.loading' | i18n }}</p>
     <p *ngIf="!loading && expenses.length === 0">{{ 'expense.none' | i18n }}</p>
@@ -94,6 +94,15 @@
               >
                 {{ downloadingBillId === expense.id ? ('common.loading' | i18n) : ('expense.downloadBill' | i18n) }}
               </button>
+
+              <button
+                type="button"
+                class="danger"
+                (click)="removeExpense(expense)"
+                [disabled]="deletingExpenseId === expense.id"
+              >
+                {{ deletingExpenseId === expense.id ? ('common.loading' | i18n) : 'Remove' }}
+              </button>
             </td>
           </tr>
 
@@ -102,21 +111,6 @@
               <div class="card" style="margin: 8px 0 0 0;">
                 <h3 style="margin-top: 0;">{{ 'expense.billsTitle' | i18n }}</h3>
 
-                <div class="form-group">
-                  <label [for]="'expenseBillUpload-' + expense.id">{{ 'expense.bill' | i18n }}</label>
-                  <input [id]="'expenseBillUpload-' + expense.id" #expenseBillInput type="file" multiple (change)="onExpenseBillsSelected($event)">
-                </div>
-
-                <div style="margin-top: 8px; margin-bottom: 12px;" *ngIf="selectedExpenseBillFiles.length > 0">
-                  <p style="margin: 0 0 8px 0;">{{ selectedExpenseBillFiles.length }} file(s) selected</p>
-                  <div style="display: flex; gap: 8px;">
-                    <button type="button" (click)="uploadExpenseBills(expenseBillInput)" [disabled]="uploadingExpenseBills">
-                      {{ uploadingExpenseBills ? ('expense.saving' | i18n) : ('expense.uploadBills' | i18n) }}
-                    </button>
-                    <button type="button" class="danger" (click)="clearExpenseBillFiles(expenseBillInput)">{{ 'common.cancel' | i18n }}</button>
-                  </div>
-                </div>
-
                 <p *ngIf="loadingExpenseBills">{{ 'common.loading' | i18n }}</p>
                 <p *ngIf="!loadingExpenseBills && expenseBills.length === 0">{{ 'expense.noBills' | i18n }}</p>
 
@@ -124,6 +118,7 @@
                   <thead>
                     <tr>
                       <th>{{ 'expense.bill' | i18n }}</th>
+                      <th>Preview</th>
                       <th>{{ 'common.created' | i18n }}</th>
                       <th>{{ 'loan.actions' | i18n }}</th>
                     </tr>
@@ -131,6 +126,30 @@
                   <tbody>
                     <tr *ngFor="let bill of expenseBills">
                       <td>{{ bill.fileName }}</td>
+                      <td style="min-width: 220px;">
+                        <p *ngIf="isBillPreviewLoading(bill)" style="margin: 0;">{{ 'common.loading' | i18n }}</p>
+                        <ng-container *ngIf="!isBillPreviewLoading(bill)">
+                          <ng-container *ngIf="getBillPreview(bill) as preview; else noPreviewTemplate">
+                            <img
+                              *ngIf="preview.kind === 'image'"
+                              [src]="preview.url"
+                              [alt]="bill.fileName"
+                              style="max-width: 200px; max-height: 120px; border: 1px solid #d8dee9; border-radius: 4px; cursor: zoom-in;"
+                              (click)="openLargePreview(preview.url, bill.fileName)"
+                            />
+                            <iframe
+                              *ngIf="preview.kind === 'pdf'"
+                              [src]="preview.url"
+                              title="Bill Preview"
+                              style="width: 200px; height: 120px; border: 1px solid #d8dee9; border-radius: 4px;"
+                            ></iframe>
+                            <span *ngIf="preview.kind === 'other'">Preview not available</span>
+                          </ng-container>
+                          <ng-template #noPreviewTemplate>
+                            <span>Preview not available</span>
+                          </ng-template>
+                        </ng-container>
+                      </td>
                       <td>{{ bill.uploadedAt | date:'medium' }}</td>
                       <td>
                         <button
@@ -150,5 +169,49 @@
         </ng-container>
       </tbody>
     </table>
+  </div>
+</div>
+
+<div
+  *ngIf="largePreviewUrl"
+  (click)="closeLargePreview()"
+  style="position: fixed; inset: 0; background: rgba(15, 23, 42, 0.7); display: flex; align-items: center; justify-content: center; z-index: 1100; padding: 20px;"
+>
+  <div
+    (click)="$event.stopPropagation()"
+    style="position: relative; width: 96vw; height: 94vh; background: #ffffff; border-radius: 10px; padding: 12px; display: flex; align-items: center; justify-content: center;"
+  >
+    <div style="position: absolute; top: 10px; right: 62px; display: flex; gap: 8px;">
+      <button
+        type="button"
+        aria-label="Zoom out"
+        (click)="zoomOutLargePreview()"
+        style="width: 40px; height: 40px; border-radius: 50%; border: 1px solid #9aa5b1; background: #ffffff; color: #1f2e4a; font-size: 24px; line-height: 1; display: flex; align-items: center; justify-content: center; padding: 0; cursor: pointer;"
+      >
+        &minus;
+      </button>
+      <button
+        type="button"
+        aria-label="Zoom in"
+        (click)="zoomInLargePreview()"
+        style="width: 40px; height: 40px; border-radius: 50%; border: 1px solid #9aa5b1; background: #ffffff; color: #1f2e4a; font-size: 24px; line-height: 1; display: flex; align-items: center; justify-content: center; padding: 0; cursor: pointer;"
+      >
+        +
+      </button>
+    </div>
+    <button
+      type="button"
+      (click)="closeLargePreview()"
+      aria-label="Close preview"
+      style="position: absolute; top: 10px; right: 10px; width: 40px; height: 40px; border-radius: 50%; border: 1px solid #9aa5b1; background: #ffffff; color: #1f2e4a; font-size: 24px; line-height: 1; display: flex; align-items: center; justify-content: center; padding: 0; cursor: pointer;"
+    >
+      &times;
+    </button>
+    <img
+      [src]="largePreviewUrl"
+      [alt]="largePreviewFileName"
+      [style.transform]="'scale(' + largePreviewScale + ')'"
+      style="display: block; max-width: 92vw; max-height: 88vh; transform-origin: center center;"
+    />
   </div>
 </div>
