@@ -3,6 +3,7 @@ import { CommonModule } from '@angular/common';
 import { Location } from '@angular/common';
 import { FormsModule } from '@angular/forms';
 import { HttpErrorResponse } from '@angular/common/http';
+import { Router } from '@angular/router';
 import { firstValueFrom } from 'rxjs';
 import { Group, Pond } from '../../models';
 import { ApiService } from '../../services/api.service';
@@ -32,6 +33,7 @@ export class InvestmentSummaryPageComponent {
   constructor(
     private apiService: ApiService,
     private location: Location,
+    private router: Router,
   ) {}
 
   async ngOnInit(): Promise<void> {
@@ -101,6 +103,17 @@ export class InvestmentSummaryPageComponent {
 
   goBack(): void {
     this.location.back();
+  }
+
+  async openFarmerDetails(row: FarmerInvestmentRow): Promise<void> {
+    if (!this.selectedPondId) {
+      this.errorMessage = 'Please select a pond first.';
+      return;
+    }
+
+    await this.router.navigate(['/loans/summary', this.selectedPondId, 'farmer', row.userId], {
+      queryParams: { name: row.name },
+    });
   }
 
   private getGroupIdForPond(pondId: string): string {

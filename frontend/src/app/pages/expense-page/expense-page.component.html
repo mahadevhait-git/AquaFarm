@@ -19,6 +19,12 @@
           {{ pond.name }} <ng-container *ngIf="pond.location">({{ pond.location }})</ng-container>
         </option>
       </select>
+      <div style="margin-top: 12px; display: flex; align-items: center; gap: 12px; flex-wrap: wrap;">
+        <button type="button" (click)="showSelectedPondTotalSpent()">Show Total Spent</button>
+        <span *ngIf="selectedPondTotalSpent !== null">
+          Total spent for selected pond: {{ selectedPondTotalSpent | number:'1.2-2' }}
+        </span>
+      </div>
     </div>
   </div>
 

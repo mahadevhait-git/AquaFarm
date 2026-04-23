@@ -16,3 +16,4 @@ coverage/
 TestResults/
 .run/
 src/AquaFarm.Api/uploads/
+uploads/

@@ -1,11 +1,10 @@
-using System.Text;
 using AquaFarm.Api.Models;
+using AquaFarm.Api.Security;
 using AquaFarm.Core.Interfaces;
 using AquaFarm.Infrastructure.Data;
 using AquaFarm.Infrastructure.Services;
-using Microsoft.AspNetCore.Authentication.JwtBearer;
+using Microsoft.AspNetCore.Authentication;
 using Microsoft.EntityFrameworkCore;
-using Microsoft.IdentityModel.Tokens;
 using System.Text.Json.Serialization;
 
 var builder = WebApplication.CreateBuilder(args);
@@ -27,30 +26,14 @@ builder.Services.AddScoped<IFinancialCalculator, FinancialCalculator>();
 builder.Services.AddScoped<ILoanService, LoanService>();
 
 builder.Services.Configure<JwtSettings>(builder.Configuration.GetSection("JwtSettings"));
-var jwtSettings = builder.Configuration.GetSection("JwtSettings");
-var tokenKey = jwtSettings.GetValue<string>("Secret") ?? "DevelopmentJwtSecretKey123!";
-var key = Encoding.UTF8.GetBytes(tokenKey);
+builder.Services.AddSingleton<SimpleTokenService>();
 
 builder.Services.AddAuthentication(options =>
 {
-    options.DefaultAuthenticateScheme = JwtBearerDefaults.AuthenticationScheme;
-    options.DefaultChallengeScheme = JwtBearerDefaults.AuthenticationScheme;
+    options.DefaultAuthenticateScheme = "Bearer";
+    options.DefaultChallengeScheme = "Bearer";
 })
-.AddJwtBearer(options =>
-{
-    options.RequireHttpsMetadata = false;
-    options.SaveToken = true;
-    options.TokenValidationParameters = new TokenValidationParameters
-    {
-        ValidateIssuer = true,
-        ValidateAudience = true,
-        ValidateLifetime = true,
-        ValidateIssuerSigningKey = true,
-        ValidIssuer = jwtSettings.GetValue<string>("Issuer"),
-        ValidAudience = jwtSettings.GetValue<string>("Audience"),
-        IssuerSigningKey = new SymmetricSecurityKey(key)
-    };
-});
+.AddScheme<AuthenticationSchemeOptions, SimpleBearerAuthenticationHandler>("Bearer", _ => { });
 
 builder.Services.AddAuthorization();
 
@@ -75,7 +58,10 @@ app.UseSwaggerUI(options =>
     options.SwaggerEndpoint("/swagger/v1/swagger.json", "AquaFarm API v1");
     options.RoutePrefix = "swagger";
 });
-app.UseHttpsRedirection();
+if (!app.Environment.IsDevelopment())
+{
+    app.UseHttpsRedirection();
+}
 app.UseAuthentication();
 app.UseAuthorization();
 

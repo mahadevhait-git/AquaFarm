@@ -1,0 +1,51 @@
+<div>
+  <button type="button" (click)="goBack()" style="margin-bottom: 12px;">Back</button>
+  <h1 class="page-title">Farmer Transaction Details</h1>
+
+  <div class="card" style="margin-bottom: 20px;">
+    <p style="margin: 0 0 8px 0;"><strong>Farmer:</strong> {{ farmerName }}</p>
+    <div style="display: flex; align-items: center; gap: 10px; flex-wrap: wrap;">
+      <label for="interestPercentageInput"><strong>Annual Interest Rate (%):</strong></label>
+      <input
+        id="interestPercentageInput"
+        type="number"
+        min="0"
+        step="0.01"
+        [(ngModel)]="interestPercentage"
+        style="width: 140px;"
+      />
+      <button type="button" (click)="applyInterestCalculation()">Show Interest</button>
+      <span><strong>Applied:</strong> {{ appliedInterestPercentage | number:'1.0-2' }}%</span>
+    </div>
+  </div>
+
+  <div class="error" *ngIf="errorMessage">{{ errorMessage }}</div>
+  <p *ngIf="loading">{{ 'common.loading' | i18n }}</p>
+
+  <div *ngIf="!loading">
+    <table class="table" *ngIf="rows.length > 0">
+      <thead>
+        <tr>
+          <th>Date</th>
+          <th>Amount Contributed</th>
+          <th>Interest to Date</th>
+        </tr>
+      </thead>
+      <tbody>
+        <tr *ngFor="let row of rows">
+          <td>{{ row.contributionDate | date:'mediumDate' }}</td>
+          <td>{{ row.amount | number:'1.2-2' }}</td>
+          <td>{{ row.interestToDate | number:'1.2-2' }}</td>
+        </tr>
+      </tbody>
+    </table>
+
+    <p *ngIf="rows.length === 0">No transactions found for this farmer.</p>
+
+    <div class="card" style="margin-top: 20px;">
+      <p style="margin: 0 0 8px 0;"><strong>Principal Amount:</strong> {{ principalAmount | number:'1.2-2' }}</p>
+      <p style="margin: 0 0 8px 0;"><strong>Total Interest:</strong> {{ totalInterest | number:'1.2-2' }}</p>
+      <p style="margin: 0;"><strong>Total Amount (Principal + Interest):</strong> {{ totalAmount | number:'1.2-2' }}</p>
+    </div>
+  </div>
+</div>

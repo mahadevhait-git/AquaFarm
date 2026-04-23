@@ -9,6 +9,7 @@ import { GroupPageComponent } from './pages/group-page/group-page.component';
 import { ExpensePageComponent } from './pages/expense-page/expense-page.component';
 import { RegisterPageComponent } from './pages/register-page/register-page.component';
 import { ForgotPasswordPageComponent } from './pages/forgot-password-page/forgot-password-page.component';
+import { FarmerTransactionDetailsPageComponent } from './pages/farmer-transaction-details-page/farmer-transaction-details-page.component';
 
 export const routes: Routes = [
   { path: 'login', component: LoginPageComponent },
@@ -18,6 +19,7 @@ export const routes: Routes = [
   { path: 'ponds', component: PondPageComponent, canActivate: [authGuard] },
   { path: 'loans', component: LoanPageComponent, canActivate: [authGuard] },
   { path: 'loans/summary', component: InvestmentSummaryPageComponent, canActivate: [authGuard] },
+  { path: 'loans/summary/:pondId/farmer/:farmerId', component: FarmerTransactionDetailsPageComponent, canActivate: [authGuard] },
   { path: 'expenses', component: ExpensePageComponent, canActivate: [authGuard] },
   { path: 'groups', component: GroupPageComponent, canActivate: [authGuard] },
   { path: '', redirectTo: '/login', pathMatch: 'full' },

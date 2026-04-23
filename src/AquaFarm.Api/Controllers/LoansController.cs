@@ -3,7 +3,7 @@ using AquaFarm.Core.Interfaces;
 using AquaFarm.Infrastructure.Data;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
-using System.IdentityModel.Tokens.Jwt;
+using System.Security.Claims;
 
 namespace AquaFarm.Api.Controllers;
 
@@ -29,7 +29,7 @@ public class LoansController : ControllerBase
             return BadRequest("BorrowerId does not reference an existing user.");
         }
 
-        var userName = User.FindFirst(JwtRegisteredClaimNames.Sub)?.Value;
+        var userName = User.FindFirstValue("sub") ?? User.FindFirstValue(ClaimTypes.Name);
         Guid lenderId;
 
         if (!string.IsNullOrWhiteSpace(userName))

@@ -29,6 +29,7 @@ type BillPreview = {
 export class ExpensePageComponent {
   showEntryForm = false;
   selectedPondId = '';
+  selectedPondTotalSpent: number | null = null;
   amount: number | null = null;
   purpose = '';
   expenseDate = this.toDateInputValue(new Date());
@@ -95,6 +96,7 @@ export class ExpensePageComponent {
   }
 
   async onPondSelectionChange(): Promise<void> {
+    this.selectedPondTotalSpent = null;
     if (!this.selectedPondId) {
       this.closeExpenseBillsPanel();
       this.expenses = [];
@@ -103,6 +105,17 @@ export class ExpensePageComponent {
     }
 
     await this.loadExpenses();
+  }
+
+  showSelectedPondTotalSpent(): void {
+    if (!this.selectedPondId) {
+      this.setMessage('Please select a pond first.', true);
+      this.selectedPondTotalSpent = null;
+      return;
+    }
+
+    this.selectedPondTotalSpent = this.expenses.reduce((sum, expense) => sum + Number(expense.amount || 0), 0);
+    this.setMessage('', false);
   }
 
   onBillFileSelected(event: Event): void {

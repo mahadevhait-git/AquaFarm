@@ -1,8 +1,6 @@
-using System.IdentityModel.Tokens.Jwt;
-using System.Security.Claims;
-using System.Text;
 using System.Collections.Concurrent;
 using AquaFarm.Api.Models;
+using AquaFarm.Api.Security;
 using AquaFarm.Core;
 using AquaFarm.Core.Dtos;
 using AquaFarm.Core.Entities;
@@ -10,7 +8,6 @@ using AquaFarm.Infrastructure.Data;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Options;
-using Microsoft.IdentityModel.Tokens;
 using System.Net;
 using System.Net.Mail;
 
@@ -21,15 +18,20 @@ namespace AquaFarm.Api.Controllers;
 public class AuthController : ControllerBase
 {
     private static readonly ConcurrentDictionary<string, (string Otp, DateTime ExpiresAt)> OtpStore = new();
-    private readonly JwtSettings _jwtSettings;
+    private readonly SimpleTokenService _tokenService;
     private readonly AquaFarmDbContext _dbContext;
     private readonly IConfiguration _configuration;
 
-    public AuthController(IOptions<JwtSettings> jwtOptions, AquaFarmDbContext dbContext, IConfiguration configuration)
+    public AuthController(
+        IOptions<JwtSettings> jwtOptions,
+        AquaFarmDbContext dbContext,
+        IConfiguration configuration,
+        SimpleTokenService tokenService)
     {
-        _jwtSettings = jwtOptions.Value;
+        _ = jwtOptions.Value;
         _dbContext = dbContext;
         _configuration = configuration;
+        _tokenService = tokenService;
     }
 
     [HttpPost("register")]
@@ -97,7 +99,7 @@ public class AuthController : ControllerBase
         _dbContext.Users.Add(user);
         await _dbContext.SaveChangesAsync();
 
-        var token = BuildJwtToken(user.Id, user.UserName, user.Role.ToString());
+        var token = _tokenService.CreateToken(user.Id, user.UserName, user.Role.ToString());
         return Created(string.Empty, new AuthResponse(token, user.Role.ToString()));
     }
 
@@ -117,7 +119,7 @@ public class AuthController : ControllerBase
         }
 
         var role = user.Role.ToString();
-        var token = BuildJwtToken(user.Id, user.UserName, role);
+        var token = _tokenService.CreateToken(user.Id, user.UserName, role);
         return Ok(new AuthResponse(token, role));
     }
 
@@ -179,30 +181,6 @@ public class AuthController : ControllerBase
         OtpStore.TryRemove(normalizedEmail, out _);
 
         return Ok(new { message = "Password reset successfully." });
-    }
-
-    private string BuildJwtToken(Guid userId, string userName, string role)
-    {
-        var securityKey = new SymmetricSecurityKey(Encoding.UTF8.GetBytes(_jwtSettings.Secret));
-        var credentials = new SigningCredentials(securityKey, SecurityAlgorithms.HmacSha256);
-
-        var claims = new[]
-        {
-            new Claim(ClaimTypes.NameIdentifier, userId.ToString()),
-            new Claim(ClaimTypes.Name, userName),
-            new Claim(JwtRegisteredClaimNames.Sub, userName),
-            new Claim(ClaimTypes.Role, role),
-            new Claim(JwtRegisteredClaimNames.Jti, Guid.NewGuid().ToString())
-        };
-
-        var token = new JwtSecurityToken(
-            issuer: _jwtSettings.Issuer,
-            audience: _jwtSettings.Audience,
-            claims: claims,
-            expires: DateTime.UtcNow.AddHours(8),
-            signingCredentials: credentials);
-
-        return new JwtSecurityTokenHandler().WriteToken(token);
     }
 
     private static string NormalizePhone(string phoneNumber)

@@ -25,12 +25,16 @@
         <tr>
           <th>Farmer Name</th>
           <th>Total Investment</th>
+          <th>{{ 'loan.actions' | i18n }}</th>
         </tr>
       </thead>
       <tbody>
         <tr *ngFor="let row of rows">
           <td>{{ row.name }}</td>
           <td>{{ row.investedAmount | number:'1.2-2' }}</td>
+          <td>
+            <button type="button" (click)="openFarmerDetails(row)">View Details</button>
+          </td>
         </tr>
       </tbody>
     </table>
