@@ -56,6 +56,29 @@ export class AuthService {
     return this.formatDisplayUserName(userName);
   }
 
+  getUserId(): string | null {
+    const token = this.getToken();
+    if (!token) {
+      return null;
+    }
+
+    const payload = this.parseJwtPayload(token);
+    const candidateKeys = [
+      'nameid',
+      'nameidentifier',
+      'http://schemas.xmlsoap.org/ws/2005/05/identity/claims/nameidentifier',
+    ];
+
+    for (const key of candidateKeys) {
+      const value = payload?.[key];
+      if (typeof value === 'string' && value.trim()) {
+        return value.trim();
+      }
+    }
+
+    return null;
+  }
+
   private parseJwtPayload(token: string): Record<string, unknown> | null {
     try {
       const parts = token.split('.');

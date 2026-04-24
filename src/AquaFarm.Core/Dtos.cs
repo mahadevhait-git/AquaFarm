@@ -46,6 +46,12 @@ public record GroupCreateRequest(string Name, string? Description);
 public record GroupDto(Guid Id, string Name, string? Description, DateTime CreatedAt);
 public record AddFarmerToGroupRequest(Guid FarmerId);
 public record AddMemberToGroupRequest(Guid UserId);
+public record CreateFarmerInGroupRequest(
+    string FirstName,
+    string LastName,
+    string Address,
+    string Email,
+    string PhoneNumber);
 public record UpsertGroupContributionRequest(Guid UserId, decimal Amount);
 public record RecordGroupContributionRequest(Guid UserId, decimal Amount);
 public record UpdateCapitalTransactionAmountRequest(decimal Amount);

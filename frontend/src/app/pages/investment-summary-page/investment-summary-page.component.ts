@@ -5,14 +5,19 @@ import { FormsModule } from '@angular/forms';
 import { HttpErrorResponse } from '@angular/common/http';
 import { Router } from '@angular/router';
 import { firstValueFrom } from 'rxjs';
-import { Group, Pond } from '../../models';
+import { Expense, Group, Pond } from '../../models';
 import { ApiService } from '../../services/api.service';
 import { I18nPipe } from '../../pipes/i18n.pipe';
 
-type FarmerInvestmentRow = {
+type FarmerContributionRow = {
   userId: string;
   name: string;
-  investedAmount: number;
+  totalContribution: number;
+};
+
+type ExpenseCategoryRow = {
+  category: string;
+  totalSpent: number;
 };
 
 @Component({
@@ -25,9 +30,10 @@ export class InvestmentSummaryPageComponent {
   groups: Group[] = [];
   ponds: Pond[] = [];
   selectedPondId = '';
-  rows: FarmerInvestmentRow[] = [];
+  farmerRows: FarmerContributionRow[] = [];
+  expenseCategoryRows: ExpenseCategoryRow[] = [];
   loadingGroups = true;
-  loadingRows = false;
+  loadingSummary = false;
   errorMessage = '';
 
   constructor(
@@ -49,8 +55,9 @@ export class InvestmentSummaryPageComponent {
       ]);
       this.groups = Array.isArray(groupData) ? groupData : [];
       this.ponds = Array.isArray(pondData) ? pondData : [];
-      this.selectedPondId = this.ponds[0]?.id ?? '';
-      await this.loadRows();
+      this.selectedPondId = '';
+      this.farmerRows = [];
+      this.expenseCategoryRows = [];
       this.errorMessage = '';
     } catch (error) {
       this.errorMessage = this.getErrorMessage(error, 'Failed to load ponds.');
@@ -59,31 +66,50 @@ export class InvestmentSummaryPageComponent {
     }
   }
 
-  async onGroupChange(): Promise<void> {
-    await this.loadRows();
+  async onPondChange(): Promise<void> {
+    await this.loadSummary();
   }
 
-  async loadRows(): Promise<void> {
+  async loadSummary(): Promise<void> {
     const groupId = this.getGroupIdForPond(this.selectedPondId);
     if (!groupId) {
-      this.rows = [];
+      this.farmerRows = [];
+      this.expenseCategoryRows = [];
+      this.errorMessage = '';
       return;
     }
 
-    this.loadingRows = true;
+    this.loadingSummary = true;
     try {
-      const data = await firstValueFrom(this.apiService.groups.contributions(groupId));
-      this.rows = (Array.isArray(data) ? data : []).map((item: any) => ({
+      const [contributionData, expenseData] = await Promise.all([
+        firstValueFrom(this.apiService.groups.contributions(groupId)),
+        firstValueFrom(this.apiService.expenses.list(this.selectedPondId)),
+      ]);
+
+      this.farmerRows = (Array.isArray(contributionData) ? contributionData : []).map((item: any) => ({
         userId: item.userId,
         name: item.name,
-        investedAmount: Number(item.investedAmount ?? 0),
+        totalContribution: Number(item.investedAmount ?? 0),
       }));
+      this.expenseCategoryRows = this.getExpenseCategoryRows(Array.isArray(expenseData) ? expenseData : []);
       this.errorMessage = '';
     } catch (error) {
-      this.errorMessage = this.getErrorMessage(error, 'Failed to load farmer investments.');
+      this.errorMessage = this.getErrorMessage(error, 'Failed to load summary data.');
     } finally {
-      this.loadingRows = false;
+      this.loadingSummary = false;
     }
+  }
+
+  get totalContributionAmount(): number {
+    return this.farmerRows.reduce((sum, row) => sum + row.totalContribution, 0);
+  }
+
+  get totalExpensesAmount(): number {
+    return this.expenseCategoryRows.reduce((sum, row) => sum + row.totalSpent, 0);
+  }
+
+  get totalInvestmentAmount(): number {
+    return this.totalContributionAmount;
   }
 
   private getErrorMessage(error: unknown, fallback: string): string {
@@ -105,7 +131,7 @@ export class InvestmentSummaryPageComponent {
     this.location.back();
   }
 
-  async openFarmerDetails(row: FarmerInvestmentRow): Promise<void> {
+  async openFarmerDetails(row: FarmerContributionRow): Promise<void> {
     if (!this.selectedPondId) {
       this.errorMessage = 'Please select a pond first.';
       return;
@@ -119,5 +145,19 @@ export class InvestmentSummaryPageComponent {
   private getGroupIdForPond(pondId: string): string {
     const pond = this.ponds.find(p => p.id === pondId);
     return pond?.groupId ?? '';
+  }
+
+  private getExpenseCategoryRows(expenses: Expense[]): ExpenseCategoryRow[] {
+    const categoryMap = new Map<string, number>();
+
+    for (const expense of expenses) {
+      const rawCategory = typeof expense.purpose === 'string' ? expense.purpose.trim() : '';
+      const category = rawCategory || 'Uncategorized';
+      categoryMap.set(category, (categoryMap.get(category) ?? 0) + Number(expense.amount ?? 0));
+    }
+
+    return Array.from(categoryMap.entries())
+      .map(([category, totalSpent]) => ({ category, totalSpent }))
+      .sort((a, b) => b.totalSpent - a.totalSpent);
   }
 }

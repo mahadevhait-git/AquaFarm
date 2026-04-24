@@ -82,6 +82,12 @@ export class ApiService {
     addMember: (groupId: string, userId: string): Observable<any> =>
       this.http.post(`${this.apiBaseUrl}/groups/${groupId}/members`, { userId }, { headers: this.authHeaders() }),
 
+    createFarmer: (
+      groupId: string,
+      payload: { firstName: string; lastName: string; address: string; email: string; phoneNumber: string },
+    ): Observable<any> =>
+      this.http.post(`${this.apiBaseUrl}/groups/${groupId}/farmers`, payload, { headers: this.authHeaders() }),
+
     removeMember: (groupId: string, userId: string): Observable<any> =>
       this.http.delete(`${this.apiBaseUrl}/groups/${groupId}/members/${userId}`, { headers: this.authHeaders() }),
 

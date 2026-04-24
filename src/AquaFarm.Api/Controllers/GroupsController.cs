@@ -6,6 +6,7 @@ using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
 using System.Security.Claims;
+using System.Net.Mail;
 
 namespace AquaFarm.Api.Controllers;
 
@@ -24,10 +25,20 @@ public class GroupsController : ControllerBase
     [HttpGet]
     public async Task<IActionResult> GetAll()
     {
+        var loggedInUser = await GetLoggedInUser();
+        if (loggedInUser is null)
+        {
+            return Unauthorized("Session is stale. Please logout and login again.");
+        }
+
         var groups = await _dbContext.Groups
             .Include(g => g.Manager)
             .Include(g => g.Members).ThenInclude(m => m.User)
             .Include(g => g.Ponds)
+            .Where(g =>
+                (loggedInUser.Role == UserRole.GroupManager && g.ManagerId == loggedInUser.Id)
+                || (loggedInUser.Role == UserRole.Farmer && g.Members.Any(m => m.UserId == loggedInUser.Id))
+                || loggedInUser.Role == UserRole.Admin)
             .Select(g => new
             {
                 g.Id,
@@ -56,6 +67,10 @@ public class GroupsController : ControllerBase
         if (loggedInUser is null)
         {
             return Unauthorized("Session is stale. Please logout and login again.");
+        }
+        if (loggedInUser.Role == UserRole.Farmer)
+        {
+            return Forbid();
         }
 
         if (loggedInUser.Role != UserRole.GroupManager && loggedInUser.Role != UserRole.Admin)
@@ -88,7 +103,17 @@ public class GroupsController : ControllerBase
     [HttpPost("{groupId:guid}/members")]
     public async Task<IActionResult> AddMember(Guid groupId, [FromBody] AddMemberToGroupRequest request)
     {
-        var group = await _dbContext.Groups.FirstOrDefaultAsync(g => g.Id == groupId);
+        var loggedInUser = await GetLoggedInUser();
+        if (loggedInUser is null)
+        {
+            return Unauthorized("Session is stale. Please logout and login again.");
+        }
+        if (loggedInUser.Role == UserRole.Farmer)
+        {
+            return Forbid();
+        }
+
+        var group = await GetAccessibleGroup(groupId, loggedInUser);
         if (group is null)
         {
             return NotFound("Group not found.");
@@ -138,9 +163,119 @@ public class GroupsController : ControllerBase
         });
     }
 
+    [HttpPost("{groupId:guid}/farmers")]
+    public async Task<IActionResult> CreateFarmer(Guid groupId, [FromBody] CreateFarmerInGroupRequest request)
+    {
+        var loggedInUser = await GetLoggedInUser();
+        if (loggedInUser is null)
+        {
+            return Unauthorized("Session is stale. Please logout and login again.");
+        }
+        if (loggedInUser.Role == UserRole.Farmer)
+        {
+            return Forbid();
+        }
+
+        var group = await GetAccessibleGroup(groupId, loggedInUser);
+        if (group is null)
+        {
+            return NotFound("Group not found.");
+        }
+
+        if (string.IsNullOrWhiteSpace(request.FirstName)
+            || string.IsNullOrWhiteSpace(request.LastName)
+            || string.IsNullOrWhiteSpace(request.Address)
+            || string.IsNullOrWhiteSpace(request.Email)
+            || string.IsNullOrWhiteSpace(request.PhoneNumber))
+        {
+            return BadRequest("First name, last name, address, email, and phone number are required.");
+        }
+
+        var normalizedPhone = NormalizePhone(request.PhoneNumber);
+        if (normalizedPhone.Length < 10 || normalizedPhone.Length > 15)
+        {
+            return BadRequest("Phone number must contain 10 to 15 digits.");
+        }
+
+        var normalizedEmail = request.Email.Trim().ToLowerInvariant();
+        if (!IsValidEmail(normalizedEmail))
+        {
+            return BadRequest("Please enter a valid email address.");
+        }
+
+        var phoneExists = await _dbContext.Users.AnyAsync(u => u.PhoneNumber == normalizedPhone);
+        if (phoneExists)
+        {
+            return BadRequest("Phone number is already registered.");
+        }
+
+        var emailExists = await _dbContext.Users.AnyAsync(u => u.Email == normalizedEmail);
+        if (emailExists)
+        {
+            return BadRequest("Email is already registered.");
+        }
+
+        var generatedPassword = GenerateTemporaryPassword();
+        var userName = await GenerateUserName(request.FirstName, request.LastName);
+
+        var farmer = new AppUser
+        {
+            Id = Guid.NewGuid(),
+            UserName = userName,
+            FirstName = request.FirstName.Trim(),
+            LastName = request.LastName.Trim(),
+            Address = request.Address.Trim(),
+            Email = normalizedEmail,
+            PhoneNumber = normalizedPhone,
+            PasswordHash = generatedPassword,
+            Role = UserRole.Farmer,
+            CreatedAt = DateTime.UtcNow
+        };
+
+        _dbContext.Users.Add(farmer);
+
+        _dbContext.GroupMemberships.Add(new GroupMembership
+        {
+            Id = Guid.NewGuid(),
+            GroupId = groupId,
+            UserId = farmer.Id,
+            Role = MembershipRole.Member,
+            JoinedAt = DateTime.UtcNow
+        });
+
+        await _dbContext.SaveChangesAsync();
+
+        return Ok(new
+        {
+            message = "Farmer created and added to group successfully.",
+            userId = farmer.Id,
+            name = farmer.FirstName + " " + farmer.LastName,
+            userName = farmer.UserName,
+            email = farmer.Email,
+            phoneNumber = farmer.PhoneNumber,
+            autoGeneratedPassword = generatedPassword
+        });
+    }
+
     [HttpDelete("{groupId:guid}/members/{userId:guid}")]
     public async Task<IActionResult> RemoveMember(Guid groupId, Guid userId)
     {
+        var loggedInUser = await GetLoggedInUser();
+        if (loggedInUser is null)
+        {
+            return Unauthorized("Session is stale. Please logout and login again.");
+        }
+        if (loggedInUser.Role == UserRole.Farmer)
+        {
+            return Forbid();
+        }
+
+        var group = await GetAccessibleGroup(groupId, loggedInUser);
+        if (group is null)
+        {
+            return NotFound("Group not found.");
+        }
+
         var membership = await _dbContext.GroupMemberships
             .FirstOrDefaultAsync(m => m.GroupId == groupId && m.UserId == userId);
         if (membership is null)
@@ -181,8 +316,14 @@ public class GroupsController : ControllerBase
     [HttpGet("{groupId:guid}/members")]
     public async Task<IActionResult> GetMembers(Guid groupId, [FromQuery] string? search = null)
     {
-        var groupExists = await _dbContext.Groups.AnyAsync(g => g.Id == groupId);
-        if (!groupExists)
+        var loggedInUser = await GetLoggedInUser();
+        if (loggedInUser is null)
+        {
+            return Unauthorized("Session is stale. Please logout and login again.");
+        }
+
+        var group = await GetAccessibleGroup(groupId, loggedInUser);
+        if (group is null)
         {
             return NotFound("Group not found.");
         }
@@ -218,8 +359,14 @@ public class GroupsController : ControllerBase
     [HttpGet("{groupId:guid}/member-candidates")]
     public async Task<IActionResult> SearchMemberCandidates(Guid groupId, [FromQuery] string? search = null)
     {
-        var groupExists = await _dbContext.Groups.AnyAsync(g => g.Id == groupId);
-        if (!groupExists)
+        var loggedInUser = await GetLoggedInUser();
+        if (loggedInUser is null)
+        {
+            return Unauthorized("Session is stale. Please logout and login again.");
+        }
+
+        var group = await GetAccessibleGroup(groupId, loggedInUser);
+        if (group is null)
         {
             return NotFound("Group not found.");
         }
@@ -261,8 +408,14 @@ public class GroupsController : ControllerBase
     [HttpGet("{groupId:guid}/contributions")]
     public async Task<IActionResult> GetContributions(Guid groupId)
     {
-        var groupExists = await _dbContext.Groups.AnyAsync(g => g.Id == groupId);
-        if (!groupExists)
+        var loggedInUser = await GetLoggedInUser();
+        if (loggedInUser is null)
+        {
+            return Unauthorized("Session is stale. Please logout and login again.");
+        }
+
+        var group = await GetAccessibleGroup(groupId, loggedInUser);
+        if (group is null)
         {
             return NotFound("Group not found.");
         }
@@ -304,6 +457,22 @@ public class GroupsController : ControllerBase
             return BadRequest("Contribution amount cannot be negative.");
         }
 
+        var loggedInUser = await GetLoggedInUser();
+        if (loggedInUser is null)
+        {
+            return Unauthorized("Session is stale. Please logout and login again.");
+        }
+        if (loggedInUser.Role == UserRole.Farmer)
+        {
+            return Forbid();
+        }
+
+        var group = await GetAccessibleGroup(groupId, loggedInUser);
+        if (group is null)
+        {
+            return NotFound("Group not found.");
+        }
+
         var membership = await _dbContext.GroupMemberships
             .Include(m => m.User)
             .FirstOrDefaultAsync(m => m.GroupId == groupId && m.UserId == request.UserId);
@@ -315,12 +484,6 @@ public class GroupsController : ControllerBase
         if (membership.User.Role != UserRole.Farmer)
         {
             return BadRequest("Contribution can only be managed for farmers.");
-        }
-
-        var loggedInUser = await GetLoggedInUser();
-        if (loggedInUser is null)
-        {
-            return Unauthorized("Session is stale. Please logout and login again.");
         }
 
         var existing = await _dbContext.Loans
@@ -381,6 +544,22 @@ public class GroupsController : ControllerBase
             return BadRequest("Contribution amount must be greater than zero.");
         }
 
+        var loggedInUser = await GetLoggedInUser();
+        if (loggedInUser is null)
+        {
+            return Unauthorized("Session is stale. Please logout and login again.");
+        }
+        if (loggedInUser.Role == UserRole.Farmer)
+        {
+            return Forbid();
+        }
+
+        var group = await GetAccessibleGroup(groupId, loggedInUser);
+        if (group is null)
+        {
+            return NotFound("Group not found.");
+        }
+
         var membership = await _dbContext.GroupMemberships
             .Include(m => m.User)
             .FirstOrDefaultAsync(m => m.GroupId == groupId && m.UserId == request.UserId);
@@ -412,6 +591,22 @@ public class GroupsController : ControllerBase
     [HttpDelete("{groupId:guid}/contributions/{userId:guid}")]
     public async Task<IActionResult> DeleteContribution(Guid groupId, Guid userId)
     {
+        var loggedInUser = await GetLoggedInUser();
+        if (loggedInUser is null)
+        {
+            return Unauthorized("Session is stale. Please logout and login again.");
+        }
+        if (loggedInUser.Role == UserRole.Farmer)
+        {
+            return Forbid();
+        }
+
+        var group = await GetAccessibleGroup(groupId, loggedInUser);
+        if (group is null)
+        {
+            return NotFound("Group not found.");
+        }
+
         var existing = await _dbContext.Loans
             .Where(l => l.GroupId == groupId && l.BorrowerId == userId)
             .ToListAsync();
@@ -438,8 +633,14 @@ public class GroupsController : ControllerBase
     [HttpGet("{groupId:guid}/capital-transactions")]
     public async Task<IActionResult> GetCapitalTransactions(Guid groupId, [FromQuery] Guid? farmerId = null)
     {
-        var groupExists = await _dbContext.Groups.AnyAsync(g => g.Id == groupId);
-        if (!groupExists)
+        var loggedInUser = await GetLoggedInUser();
+        if (loggedInUser is null)
+        {
+            return Unauthorized("Session is stale. Please logout and login again.");
+        }
+
+        var group = await GetAccessibleGroup(groupId, loggedInUser);
+        if (group is null)
         {
             return NotFound("Group not found.");
         }
@@ -481,6 +682,22 @@ public class GroupsController : ControllerBase
         if (request.Amount < 0)
         {
             return BadRequest("Contribution amount cannot be negative.");
+        }
+
+        var loggedInUser = await GetLoggedInUser();
+        if (loggedInUser is null)
+        {
+            return Unauthorized("Session is stale. Please logout and login again.");
+        }
+        if (loggedInUser.Role == UserRole.Farmer)
+        {
+            return Forbid();
+        }
+
+        var group = await GetAccessibleGroup(groupId, loggedInUser);
+        if (group is null)
+        {
+            return NotFound("Group not found.");
         }
 
         var transaction = await _dbContext.CapitalTransactions
@@ -574,5 +791,79 @@ public class GroupsController : ControllerBase
         }
 
         return await _dbContext.Users.FirstOrDefaultAsync(u => u.UserName == userName);
+    }
+
+    private static string NormalizePhone(string phoneNumber)
+    {
+        var chars = phoneNumber.Where(char.IsDigit).ToArray();
+        return new string(chars);
+    }
+
+    private static bool IsValidEmail(string email)
+    {
+        try
+        {
+            var parsed = new MailAddress(email.Trim());
+            return parsed.Address.Equals(email.Trim(), StringComparison.OrdinalIgnoreCase);
+        }
+        catch
+        {
+            return false;
+        }
+    }
+
+    private async Task<string> GenerateUserName(string firstName, string lastName)
+    {
+        var baseName = $"{firstName.Trim()}.{lastName.Trim()}".ToLowerInvariant();
+        baseName = new string(baseName.Where(c => char.IsLetterOrDigit(c) || c == '.').ToArray());
+        if (string.IsNullOrWhiteSpace(baseName))
+        {
+            baseName = "user";
+        }
+
+        var candidate = baseName;
+        var suffix = 1;
+        while (await _dbContext.Users.AnyAsync(u => u.UserName == candidate))
+        {
+            suffix++;
+            candidate = $"{baseName}{suffix}";
+        }
+
+        return candidate;
+    }
+
+    private static string GenerateTemporaryPassword()
+    {
+        const string upper = "ABCDEFGHJKLMNPQRSTUVWXYZ";
+        const string lower = "abcdefghijkmnopqrstuvwxyz";
+        const string digits = "23456789";
+        const string symbols = "!@#$%^&*";
+        var all = upper + lower + digits + symbols;
+
+        var chars = new List<char>
+        {
+            upper[Random.Shared.Next(upper.Length)],
+            lower[Random.Shared.Next(lower.Length)],
+            digits[Random.Shared.Next(digits.Length)],
+            symbols[Random.Shared.Next(symbols.Length)]
+        };
+
+        for (var i = chars.Count; i < 10; i++)
+        {
+            chars.Add(all[Random.Shared.Next(all.Length)]);
+        }
+
+        return new string(chars.OrderBy(_ => Random.Shared.Next()).ToArray());
+    }
+
+    private async Task<Group?> GetAccessibleGroup(Guid groupId, AppUser loggedInUser)
+    {
+        return await _dbContext.Groups.FirstOrDefaultAsync(g =>
+            g.Id == groupId
+            && (
+                loggedInUser.Role == UserRole.Admin
+                || (loggedInUser.Role == UserRole.GroupManager && g.ManagerId == loggedInUser.Id)
+                || (loggedInUser.Role == UserRole.Farmer && _dbContext.GroupMemberships.Any(m => m.GroupId == g.Id && m.UserId == loggedInUser.Id))
+            ));
     }
 }

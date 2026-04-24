@@ -5,6 +5,7 @@ import { HttpErrorResponse } from '@angular/common/http';
 import { firstValueFrom } from 'rxjs';
 import { Pond } from '../../models';
 import { ApiService } from '../../services/api.service';
+import { AuthService } from '../../services/auth.service';
 import { I18nPipe } from '../../pipes/i18n.pipe';
 
 @Component({
@@ -21,8 +22,14 @@ export class PondPageComponent implements OnInit {
   formData = { name: '', location: '' };
   loading = true;
   errorMessage = '';
+  readonly isReadOnly: boolean;
 
-  constructor(private apiService: ApiService) {}
+  constructor(
+    private apiService: ApiService,
+    private authService: AuthService,
+  ) {
+    this.isReadOnly = this.authService.getRole() === 'Farmer';
+  }
 
   ngOnInit(): void {
     this.loadPonds();
@@ -42,6 +49,9 @@ export class PondPageComponent implements OnInit {
 
   async handleCreatePond(event: Event): Promise<void> {
     event.preventDefault();
+    if (this.isReadOnly) {
+      return;
+    }
     try {
       if (this.isEditMode && this.editingPondId) {
         await firstValueFrom(this.apiService.ponds.update(this.editingPondId, this.formData));
@@ -57,11 +67,17 @@ export class PondPageComponent implements OnInit {
   }
 
   startCreate(): void {
+    if (this.isReadOnly) {
+      return;
+    }
     this.resetForm();
     this.showForm = true;
   }
 
   startEdit(pond: Pond): void {
+    if (this.isReadOnly) {
+      return;
+    }
     this.showForm = true;
     this.isEditMode = true;
     this.editingPondId = pond.id;
@@ -73,6 +89,9 @@ export class PondPageComponent implements OnInit {
   }
 
   async deletePond(pond: Pond): Promise<void> {
+    if (this.isReadOnly) {
+      return;
+    }
     const shouldDelete = window.confirm(`Delete pond "${pond.name}"?`);
     if (!shouldDelete) {
       return;

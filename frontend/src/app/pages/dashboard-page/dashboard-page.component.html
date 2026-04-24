@@ -13,7 +13,7 @@
         <tr>
           <th>{{ 'dashboard.pondName' | i18n }}</th>
           <th>{{ 'common.location' | i18n }}</th>
-          <th>{{ 'dashboard.ownerId' | i18n }}</th>
+          <th>Owner Name</th>
           <th>{{ 'common.created' | i18n }}</th>
         </tr>
       </thead>
@@ -21,7 +21,7 @@
         <tr *ngFor="let pond of ponds">
           <td>{{ pond.name }}</td>
           <td>{{ pond.location || ('common.na' | i18n) }}</td>
-          <td>{{ pond.ownerId }}</td>
+          <td>{{ getOwnerName(pond) }}</td>
           <td>{{ pond.createdAt | date }}</td>
         </tr>
       </tbody>

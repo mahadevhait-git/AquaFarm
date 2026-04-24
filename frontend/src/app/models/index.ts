@@ -31,6 +31,7 @@ export interface Pond {
   name: string;
   location?: string;
   ownerId: string;
+  ownerName?: string;
   groupId?: string;
   createdAt: Date;
 }

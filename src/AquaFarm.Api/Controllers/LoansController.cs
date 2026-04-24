@@ -1,12 +1,16 @@
 using AquaFarm.Core.Dtos;
+using AquaFarm.Core.Entities;
+using AquaFarm.Core;
 using AquaFarm.Core.Interfaces;
 using AquaFarm.Infrastructure.Data;
+using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
 using System.Security.Claims;
 
 namespace AquaFarm.Api.Controllers;
 
+[Authorize]
 [ApiController]
 [Route("api/[controller]")]
 public class LoansController : ControllerBase
@@ -29,46 +33,90 @@ public class LoansController : ControllerBase
             return BadRequest("BorrowerId does not reference an existing user.");
         }
 
-        var userName = User.FindFirstValue("sub") ?? User.FindFirstValue(ClaimTypes.Name);
-        Guid lenderId;
-
-        if (!string.IsNullOrWhiteSpace(userName))
+        var loggedInUser = await GetLoggedInUser();
+        if (loggedInUser is null)
         {
-            lenderId = await _dbContext.Users
-                .Where(u => u.UserName == userName)
-                .Select(u => u.Id)
-                .FirstOrDefaultAsync();
+            return Unauthorized("Session is stale. Please logout and login again.");
         }
-        else
+        if (loggedInUser.Role == UserRole.Farmer)
         {
-            lenderId = Guid.Empty;
+            return Forbid();
         }
 
-        if (lenderId == Guid.Empty)
-        {
-            lenderId = await _dbContext.Users.Select(u => u.Id).FirstOrDefaultAsync();
-        }
-
-        if (lenderId == Guid.Empty)
-        {
-            return BadRequest("No valid lender user found.");
-        }
-
-        var loan = _loanService.CreateLoan(request, lenderId);
+        var loan = _loanService.CreateLoan(request, loggedInUser.Id);
         return CreatedAtAction(nameof(GetSummary), new { loanId = loan.Id }, loan);
     }
 
     [HttpPost("{loanId}/repay")]
-    public IActionResult RepayLoan(Guid loanId, [FromBody] LoanRepaymentRequest request)
+    public async Task<IActionResult> RepayLoan(Guid loanId, [FromBody] LoanRepaymentRequest request)
     {
+        var loggedInUser = await GetLoggedInUser();
+        if (loggedInUser is null)
+        {
+            return Unauthorized("Session is stale. Please logout and login again.");
+        }
+        if (loggedInUser.Role == UserRole.Farmer)
+        {
+            return Forbid();
+        }
+
+        var loan = await _dbContext.Loans.FirstOrDefaultAsync(l => l.Id == loanId);
+        if (loan is null)
+        {
+            return NotFound("Loan not found.");
+        }
+
+        if (loggedInUser.Role == UserRole.GroupManager && loan.LenderId != loggedInUser.Id)
+        {
+            return Forbid();
+        }
+
         var repayment = _loanService.RegisterRepayment(loanId, request);
         return Ok(repayment);
     }
 
     [HttpGet("{loanId}/summary")]
-    public IActionResult GetSummary(Guid loanId)
+    public async Task<IActionResult> GetSummary(Guid loanId)
     {
+        var loggedInUser = await GetLoggedInUser();
+        if (loggedInUser is null)
+        {
+            return Unauthorized("Session is stale. Please logout and login again.");
+        }
+
+        var loan = await _dbContext.Loans.FirstOrDefaultAsync(l => l.Id == loanId);
+        if (loan is null)
+        {
+            return NotFound("Loan not found.");
+        }
+
+        if (loggedInUser.Role == UserRole.GroupManager && loan.LenderId != loggedInUser.Id)
+        {
+            return Forbid();
+        }
+
         var summary = _loanService.GetLoanSummary(loanId);
         return Ok(summary);
+    }
+
+    private async Task<AppUser?> GetLoggedInUser()
+    {
+        var nameIdentifier = User.FindFirstValue(ClaimTypes.NameIdentifier);
+        if (!string.IsNullOrWhiteSpace(nameIdentifier) && Guid.TryParse(nameIdentifier, out var userId))
+        {
+            var byId = await _dbContext.Users.FirstOrDefaultAsync(u => u.Id == userId);
+            if (byId is not null)
+            {
+                return byId;
+            }
+        }
+
+        var userName = User.FindFirstValue("sub") ?? User.FindFirstValue(ClaimTypes.Name);
+        if (string.IsNullOrWhiteSpace(userName))
+        {
+            return null;
+        }
+
+        return await _dbContext.Users.FirstOrDefaultAsync(u => u.UserName == userName);
     }
 }

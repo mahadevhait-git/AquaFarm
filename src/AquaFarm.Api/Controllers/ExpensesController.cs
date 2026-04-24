@@ -59,8 +59,7 @@ public class ExpensesController : ControllerBase
         {
             expensesQuery = expensesQuery.Where(e =>
                 e.CreatedById == loggedInUser.Id
-                || e.Pond!.OwnerId == loggedInUser.Id
-                || (loggedInUser.Role == UserRole.GroupManager && e.Pond!.Group != null && e.Pond.Group.ManagerId == loggedInUser.Id));
+                || e.Pond!.OwnerId == loggedInUser.Id);
         }
 
         var expenses = await expensesQuery
@@ -85,6 +84,16 @@ public class ExpensesController : ControllerBase
     [RequestFormLimits(MultipartBodyLengthLimit = MaxBillFileSizeBytes)]
     public async Task<IActionResult> Create([FromForm] CreateExpenseForm form)
     {
+        var loggedInUser = await GetLoggedInUser();
+        if (loggedInUser is null)
+        {
+            return Unauthorized("Session is stale. Please logout and login again.");
+        }
+        if (loggedInUser.Role == UserRole.Farmer)
+        {
+            return Forbid();
+        }
+
         if (form.Amount <= 0)
         {
             return BadRequest("Expense amount must be greater than zero.");
@@ -98,12 +107,6 @@ public class ExpensesController : ControllerBase
         if (form.PondId == Guid.Empty)
         {
             return BadRequest("Pond is required.");
-        }
-
-        var loggedInUser = await GetLoggedInUser();
-        if (loggedInUser is null)
-        {
-            return Unauthorized("Session is stale. Please logout and login again.");
         }
 
         var pond = await _dbContext.Ponds
@@ -267,6 +270,10 @@ public class ExpensesController : ControllerBase
         {
             return Unauthorized("Session is stale. Please logout and login again.");
         }
+        if (loggedInUser.Role == UserRole.Farmer)
+        {
+            return Forbid();
+        }
 
         var pond = await _dbContext.Ponds.Include(p => p.Group).FirstOrDefaultAsync(p => p.Id == pondId);
         if (pond is null)
@@ -404,6 +411,10 @@ public class ExpensesController : ControllerBase
         {
             return Unauthorized("Session is stale. Please logout and login again.");
         }
+        if (loggedInUser.Role == UserRole.Farmer)
+        {
+            return Forbid();
+        }
 
         var expense = await _dbContext.Expenses
             .Include(e => e.Pond)
@@ -499,6 +510,10 @@ public class ExpensesController : ControllerBase
         if (loggedInUser is null)
         {
             return Unauthorized("Session is stale. Please logout and login again.");
+        }
+        if (loggedInUser.Role == UserRole.Farmer)
+        {
+            return Forbid();
         }
 
         var expense = await _dbContext.Expenses
@@ -624,27 +639,17 @@ public class ExpensesController : ControllerBase
             return true;
         }
 
-        if (user.Role == UserRole.GroupManager)
-        {
-            return true;
-        }
-
         if (pond.OwnerId == user.Id)
         {
             return true;
         }
 
-        return user.Role == UserRole.GroupManager && pond.Group != null && pond.Group.ManagerId == user.Id;
+        return false;
     }
 
     private static bool CanAccessExpense(AppUser user, Expense expense)
     {
         if (user.Role == UserRole.Admin)
-        {
-            return true;
-        }
-
-        if (user.Role == UserRole.GroupManager)
         {
             return true;
         }
@@ -659,7 +664,7 @@ public class ExpensesController : ControllerBase
             return true;
         }
 
-        return user.Role == UserRole.GroupManager && expense.Pond?.Group != null && expense.Pond.Group.ManagerId == user.Id;
+        return false;
     }
 
     private void DeleteFileIfExists(string? relativePath)

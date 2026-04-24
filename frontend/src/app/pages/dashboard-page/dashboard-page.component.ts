@@ -33,4 +33,8 @@ export class DashboardPageComponent implements OnInit {
       this.loading = false;
     }
   }
+
+  getOwnerName(pond: Pond): string {
+    return pond.ownerName?.trim() || 'Unknown Owner';
+  }
 }

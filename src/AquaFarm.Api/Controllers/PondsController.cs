@@ -1,4 +1,5 @@
 using AquaFarm.Core.Entities;
+using AquaFarm.Core;
 using AquaFarm.Core.Dtos;
 using AquaFarm.Infrastructure.Data;
 using Microsoft.AspNetCore.Authorization;
@@ -23,13 +24,32 @@ public class PondsController : ControllerBase
     [HttpGet]
     public async Task<IActionResult> GetAll()
     {
+        var loggedInUser = await GetLoggedInUser();
+        if (loggedInUser is null)
+        {
+            return Unauthorized("Session is stale. Please logout and login again.");
+        }
+
+        var farmerGroupIds = loggedInUser.Role == UserRole.Farmer
+            ? await _dbContext.GroupMemberships
+                .Where(m => m.UserId == loggedInUser.Id)
+                .Select(m => m.GroupId)
+                .ToListAsync()
+            : new List<Guid>();
+
         var ponds = await _dbContext.Ponds
+            .Include(p => p.Owner)
+            .Where(p =>
+                loggedInUser.Role == UserRole.Admin
+                || p.OwnerId == loggedInUser.Id
+                || (loggedInUser.Role == UserRole.Farmer && p.GroupId.HasValue && farmerGroupIds.Contains(p.GroupId.Value)))
             .Select(p => new
             {
                 p.Id,
                 p.Name,
                 p.Location,
                 p.OwnerId,
+                OwnerName = p.Owner != null ? (p.Owner.FirstName + " " + p.Owner.LastName) : string.Empty,
                 p.GroupId,
                 p.CreatedAt
             })
@@ -40,14 +60,33 @@ public class PondsController : ControllerBase
     [HttpGet("{id}")]
     public async Task<IActionResult> Get(Guid id)
     {
+        var loggedInUser = await GetLoggedInUser();
+        if (loggedInUser is null)
+        {
+            return Unauthorized("Session is stale. Please logout and login again.");
+        }
+
+        var farmerGroupIds = loggedInUser.Role == UserRole.Farmer
+            ? await _dbContext.GroupMemberships
+                .Where(m => m.UserId == loggedInUser.Id)
+                .Select(m => m.GroupId)
+                .ToListAsync()
+            : new List<Guid>();
+
         var pond = await _dbContext.Ponds
-            .Where(p => p.Id == id)
+            .Include(p => p.Owner)
+            .Where(p =>
+                p.Id == id
+                && (loggedInUser.Role == UserRole.Admin
+                    || p.OwnerId == loggedInUser.Id
+                    || (loggedInUser.Role == UserRole.Farmer && p.GroupId.HasValue && farmerGroupIds.Contains(p.GroupId.Value))))
             .Select(p => new
             {
                 p.Id,
                 p.Name,
                 p.Location,
                 p.OwnerId,
+                OwnerName = p.Owner != null ? (p.Owner.FirstName + " " + p.Owner.LastName) : string.Empty,
                 p.GroupId,
                 p.CreatedAt
             })
@@ -72,6 +111,10 @@ public class PondsController : ControllerBase
         if (loggedInUser is null)
         {
             return Unauthorized("Session is stale. Please logout and login again.");
+        }
+        if (loggedInUser.Role == UserRole.Farmer)
+        {
+            return Forbid();
         }
 
         if (request.GroupId.HasValue)
@@ -101,6 +144,7 @@ public class PondsController : ControllerBase
             pond.Name,
             pond.Location,
             pond.OwnerId,
+            OwnerName = loggedInUser.FirstName + " " + loggedInUser.LastName,
             pond.GroupId,
             pond.CreatedAt
         });
@@ -113,6 +157,21 @@ public class PondsController : ControllerBase
         if (existing is null)
         {
             return NotFound();
+        }
+
+        var loggedInUser = await GetLoggedInUser();
+        if (loggedInUser is null)
+        {
+            return Unauthorized("Session is stale. Please logout and login again.");
+        }
+        if (loggedInUser.Role == UserRole.Farmer)
+        {
+            return Forbid();
+        }
+
+        if (loggedInUser.Role != UserRole.Admin && existing.OwnerId != loggedInUser.Id)
+        {
+            return Forbid();
         }
 
         if (string.IsNullOrWhiteSpace(update.Name))
@@ -144,6 +203,21 @@ public class PondsController : ControllerBase
         if (existing is null)
         {
             return NotFound();
+        }
+
+        var loggedInUser = await GetLoggedInUser();
+        if (loggedInUser is null)
+        {
+            return Unauthorized("Session is stale. Please logout and login again.");
+        }
+        if (loggedInUser.Role == UserRole.Farmer)
+        {
+            return Forbid();
+        }
+
+        if (loggedInUser.Role != UserRole.Admin && existing.OwnerId != loggedInUser.Id)
+        {
+            return Forbid();
         }
 
         _dbContext.Ponds.Remove(existing);

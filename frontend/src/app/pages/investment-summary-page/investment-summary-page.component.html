@@ -1,6 +1,6 @@
 <div>
   <button type="button" (click)="goBack()" style="margin-bottom: 12px;">Back</button>
-  <h1 class="page-title">Investment Summary</h1>
+  <h1 class="page-title">Expense and Contribution Summary</h1>
   <div class="error" *ngIf="errorMessage">{{ errorMessage }}</div>
 
   <div class="card">
@@ -10,34 +10,79 @@
         id="summaryGroup"
         [(ngModel)]="selectedPondId"
         name="summaryGroup"
-        (change)="onGroupChange()"
+        (change)="onPondChange()"
         [disabled]="loadingGroups || ponds.length === 0"
       >
+        <option [ngValue]="''">-- Select a pond --</option>
         <option *ngFor="let pond of ponds" [ngValue]="pond.id">{{ pond.name }}</option>
       </select>
     </div>
   </div>
 
-  <p *ngIf="loadingRows">{{ 'common.loading' | i18n }}</p>
-  <div *ngIf="!loadingRows">
-    <table class="table" *ngIf="rows.length > 0">
+  <p *ngIf="!selectedPondId">Please select a pond to view summary.</p>
+  <p *ngIf="selectedPondId && loadingSummary">{{ 'common.loading' | i18n }}</p>
+  <div *ngIf="selectedPondId && !loadingSummary">
+    <div class="card" style="margin-bottom: 16px;">
+      <h2 style="margin-top: 0;">Investment and Expense Overview</h2>
+      <table class="table">
+        <tbody>
+          <tr>
+            <th>Total Investment</th>
+            <td>{{ totalInvestmentAmount | number:'1.2-2' }}</td>
+          </tr>
+          <tr>
+            <th>Total Expenses</th>
+            <td>{{ totalExpensesAmount | number:'1.2-2' }}</td>
+          </tr>
+        </tbody>
+      </table>
+    </div>
+
+    <h2>Category-wise Expenses</h2>
+    <table class="table" *ngIf="expenseCategoryRows.length > 0">
+      <thead>
+        <tr>
+          <th>Expense Category</th>
+          <th>Total Spent</th>
+        </tr>
+      </thead>
+      <tbody>
+        <tr *ngFor="let row of expenseCategoryRows">
+          <td>{{ row.category }}</td>
+          <td>{{ row.totalSpent | number:'1.2-2' }}</td>
+        </tr>
+        <tr>
+          <th>Total Expenses</th>
+          <th>{{ totalExpensesAmount | number:'1.2-2' }}</th>
+        </tr>
+      </tbody>
+    </table>
+    <p *ngIf="expenseCategoryRows.length === 0">No expenses found for this pond.</p>
+
+    <h2>Farmer Contributions</h2>
+    <table class="table" *ngIf="farmerRows.length > 0">
       <thead>
         <tr>
           <th>Farmer Name</th>
-          <th>Total Investment</th>
+          <th>Total Contribution</th>
           <th>{{ 'loan.actions' | i18n }}</th>
         </tr>
       </thead>
       <tbody>
-        <tr *ngFor="let row of rows">
+        <tr *ngFor="let row of farmerRows">
           <td>{{ row.name }}</td>
-          <td>{{ row.investedAmount | number:'1.2-2' }}</td>
+          <td>{{ row.totalContribution | number:'1.2-2' }}</td>
           <td>
             <button type="button" (click)="openFarmerDetails(row)">View Details</button>
           </td>
         </tr>
+        <tr>
+          <th>Total Contribution Amount</th>
+          <th>{{ totalContributionAmount | number:'1.2-2' }}</th>
+          <th></th>
+        </tr>
       </tbody>
     </table>
-    <p *ngIf="rows.length === 0">No farmers found for this pond.</p>
+    <p *ngIf="farmerRows.length === 0">No contribution records found for this pond.</p>
   </div>
 </div>

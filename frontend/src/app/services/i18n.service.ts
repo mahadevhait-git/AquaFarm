@@ -14,6 +14,7 @@ export class I18nService {
       'nav.dashboard': 'Dashboard',
       'nav.ponds': 'Ponds',
       'nav.loans': 'Investments',
+      'nav.summary': 'Summary',
       'nav.expenses': 'Expenses',
       'nav.groups': 'Groups',
       'nav.logout': 'Logout',

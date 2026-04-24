@@ -2,11 +2,11 @@
   <h1 class="page-title">{{ 'pond.title' | i18n }}</h1>
   <div class="error" *ngIf="errorMessage">{{ errorMessage }}</div>
 
-  <button (click)="showForm ? cancelForm() : startCreate()">
+  <button *ngIf="!isReadOnly" (click)="showForm ? cancelForm() : startCreate()">
     {{ showForm ? ('common.cancel' | i18n) : ('pond.new' | i18n) }}
   </button>
 
-  <div class="card" style="margin-top: 20px;" *ngIf="showForm">
+  <div class="card" style="margin-top: 20px;" *ngIf="showForm && !isReadOnly">
     <h3>{{ isEditMode ? 'Edit Pond' : ('pond.formTitle' | i18n) }}</h3>
     <form (ngSubmit)="handleCreatePond($event)">
       <div class="form-group">
@@ -32,7 +32,7 @@
           <th>{{ 'pond.name' | i18n }}</th>
           <th>{{ 'common.location' | i18n }}</th>
           <th>{{ 'common.created' | i18n }}</th>
-          <th>Actions</th>
+          <th *ngIf="!isReadOnly">Actions</th>
         </tr>
       </thead>
       <tbody>
@@ -40,7 +40,7 @@
           <td>{{ pond.name }}</td>
           <td>{{ pond.location || ('common.na' | i18n) }}</td>
           <td>{{ pond.createdAt | date }}</td>
-          <td style="display: flex; gap: 8px;">
+          <td *ngIf="!isReadOnly" style="display: flex; gap: 8px;">
             <button type="button" (click)="startEdit(pond)">Edit</button>
             <button type="button" class="danger" (click)="deletePond(pond)">Delete</button>
           </td>
