@@ -2,7 +2,8 @@
   <button type="button" (click)="goBack()" style="margin-bottom: 12px;">Back</button>
   <h1 class="page-title">Farmer Transaction Details</h1>
 
-  <div class="card" style="margin-bottom: 20px;">
+  <div class="card" style="margin-bottom: 20px;" *ngIf="userRole !== 'Farmer'">
+    <p style="margin: 0 0 8px 0;"><strong>Pond:</strong> {{ pondName || '-' }}</p>
     <p style="margin: 0 0 8px 0;"><strong>Farmer:</strong> {{ farmerName }}</p>
     <div style="display: flex; align-items: center; gap: 10px; flex-wrap: wrap;">
       <label for="interestPercentageInput"><strong>Annual Interest Rate (%):</strong></label>
@@ -19,6 +20,10 @@
     </div>
   </div>
 
+  <div class="card" style="margin-bottom: 20px;" *ngIf="userRole === 'Farmer'">
+    <p style="margin: 0;"><strong>My Payment Status for Pond:</strong> {{ pondName || '-' }}</p>
+  </div>
+
   <div class="error" *ngIf="errorMessage">{{ errorMessage }}</div>
   <p *ngIf="loading">{{ 'common.loading' | i18n }}</p>
 
@@ -26,16 +31,47 @@
     <table class="table" *ngIf="rows.length > 0">
       <thead>
         <tr>
+          <th *ngIf="userRole !== 'Farmer'">Select</th>
           <th>Date</th>
-          <th>Amount Contributed</th>
-          <th>Interest to Date</th>
+          <th>Payment Date</th>
+          <th>Principal</th>
+          <th>Interest</th>
+          <th>Total</th>
+          <th *ngIf="userRole === 'Farmer'">Manager</th>
+          <th>Status</th>
+          <th *ngIf="userRole === 'Farmer'">Action</th>
         </tr>
       </thead>
       <tbody>
         <tr *ngFor="let row of rows">
+          <td *ngIf="userRole !== 'Farmer'">
+            <input
+              *ngIf="row.canSelect; else paidStatus"
+              type="checkbox"
+              [(ngModel)]="row.selected"
+              (change)="onSelectionChange()"
+            />
+            <ng-template #paidStatus>
+              <span>{{ row.status }}</span>
+            </ng-template>
+          </td>
           <td>{{ row.contributionDate | date:'mediumDate' }}</td>
-          <td>{{ row.amount | number:'1.2-2' }}</td>
+          <td>{{ row.paymentDate ? (row.paymentDate | date:'mediumDate') : '-' }}</td>
+          <td>{{ row.principalAmount | number:'1.2-2' }}</td>
           <td>{{ row.interestToDate | number:'1.2-2' }}</td>
+          <td>{{ row.totalAmount | number:'1.2-2' }}</td>
+          <td *ngIf="userRole === 'Farmer'">{{ row.managerName || '-' }}</td>
+          <td>{{ row.status }}</td>
+          <td *ngIf="userRole === 'Farmer'">
+            <button
+              type="button"
+              *ngIf="row.status !== 'Completed'"
+              (click)="confirmPayout(row)"
+              [disabled]="confirmingPayoutId === row.payoutId"
+            >
+              {{ confirmingPayoutId === row.payoutId ? 'Confirming...' : 'Confirm' }}
+            </button>
+          </td>
         </tr>
       </tbody>
     </table>
@@ -43,9 +79,22 @@
     <p *ngIf="rows.length === 0">No transactions found for this farmer.</p>
 
     <div class="card" style="margin-top: 20px;">
+      <div *ngIf="userRole !== 'Farmer'" class="form-group">
+        <label><strong>Selected Amount (Principal + Interest)</strong></label>
+        <input type="text" [value]="totalAmount | number:'1.2-2'" readonly>
+      </div>
       <p style="margin: 0 0 8px 0;"><strong>Principal Amount:</strong> {{ principalAmount | number:'1.2-2' }}</p>
       <p style="margin: 0 0 8px 0;"><strong>Total Interest:</strong> {{ totalInterest | number:'1.2-2' }}</p>
       <p style="margin: 0;"><strong>Total Amount (Principal + Interest):</strong> {{ totalAmount | number:'1.2-2' }}</p>
+      <button
+        type="button"
+        *ngIf="userRole !== 'Farmer'"
+        (click)="submitPayout()"
+        [disabled]="submitting"
+        style="margin-top: 12px;"
+      >
+        {{ submitting ? 'Submitting...' : 'Submit' }}
+      </button>
     </div>
   </div>
 </div>

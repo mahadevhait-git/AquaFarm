@@ -55,6 +55,8 @@ public record CreateFarmerInGroupRequest(
 public record UpsertGroupContributionRequest(Guid UserId, decimal Amount);
 public record RecordGroupContributionRequest(Guid UserId, decimal Amount);
 public record UpdateCapitalTransactionAmountRequest(decimal Amount);
+public record CreateContributionPayoutRequest(Guid PondId, Guid FarmerId, decimal AnnualInterestRate, List<Guid> CapitalTransactionIds);
+public record ConfirmContributionPayoutRequest(Guid PayoutId);
 
 public record LoanCreateRequest(Guid BorrowerId, decimal PrincipalAmount, decimal InterestRate, InterestType InterestType, int TermMonths, string? Notes = null);
 public record LoanRepaymentRequest(decimal Amount, DateTime Date, string? Notes = null);

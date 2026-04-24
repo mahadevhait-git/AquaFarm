@@ -1,0 +1,55 @@
+<div>
+  <h1 class="page-title">My Payments</h1>
+  <div class="error" *ngIf="errorMessage">{{ errorMessage }}</div>
+
+  <div class="card">
+    <div class="form-group" style="margin-bottom: 0;">
+      <label for="myPaymentsPond">Filter by Pond</label>
+      <select id="myPaymentsPond" [(ngModel)]="selectedPondId" (change)="onPondChange()">
+        <option value="">All Assigned Ponds</option>
+        <option *ngFor="let pond of ponds" [ngValue]="pond.id">{{ pond.name }}</option>
+      </select>
+    </div>
+  </div>
+
+  <p *ngIf="loading">Loading...</p>
+  <p *ngIf="!loading && rows.length === 0">No payment records found.</p>
+
+  <table class="table" *ngIf="!loading && rows.length > 0">
+    <thead>
+      <tr>
+        <th>Pond</th>
+        <th>Manager</th>
+        <th>Contribution Date</th>
+        <th>Payment Date</th>
+        <th>Principal</th>
+        <th>Interest</th>
+        <th>Total</th>
+        <th>Status</th>
+        <th>Action</th>
+      </tr>
+    </thead>
+    <tbody>
+      <tr *ngFor="let row of rows">
+        <td>{{ row.pondName }}</td>
+        <td>{{ row.managerName || '-' }}</td>
+        <td>{{ row.contributionDate | date:'mediumDate' }}</td>
+        <td>{{ row.paidAt ? (row.paidAt | date:'mediumDate') : '-' }}</td>
+        <td>{{ row.principalAmount | number:'1.2-2' }}</td>
+        <td>{{ row.interestAmount | number:'1.2-2' }}</td>
+        <td>{{ row.totalAmount | number:'1.2-2' }}</td>
+        <td>{{ row.status }}</td>
+        <td>
+          <button
+            type="button"
+            *ngIf="row.status !== 'Completed'"
+            (click)="confirm(row)"
+            [disabled]="confirmingPayoutId === row.payoutId"
+          >
+            {{ confirmingPayoutId === row.payoutId ? 'Confirming...' : 'Confirm' }}
+          </button>
+        </td>
+      </tr>
+    </tbody>
+  </table>
+</div>

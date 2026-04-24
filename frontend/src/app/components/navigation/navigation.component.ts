@@ -39,6 +39,10 @@ export class NavigationComponent {
     return this.authService.getRole() || 'Unknown Role';
   }
 
+  get isFarmer(): boolean {
+    return (this.authService.getRole() || '').toLowerCase() === 'farmer';
+  }
+
   logout(): void {
     this.authService.clearSession();
     this.router.navigate(['/login']);

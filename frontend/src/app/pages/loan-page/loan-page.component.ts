@@ -6,6 +6,7 @@ import { RouterLink } from '@angular/router';
 import { firstValueFrom } from 'rxjs';
 import { Group, GroupMember, Pond } from '../../models';
 import { ApiService } from '../../services/api.service';
+import { AuthService } from '../../services/auth.service';
 import { I18nPipe } from '../../pipes/i18n.pipe';
 
 type CapitalTransactionRow = {
@@ -45,8 +46,14 @@ export class LoanPageComponent {
 
   customMessage = '';
   isErrorMessage = false;
+  readonly isReadOnly: boolean;
 
-  constructor(private apiService: ApiService) {}
+  constructor(
+    private apiService: ApiService,
+    private authService: AuthService,
+  ) {
+    this.isReadOnly = (this.authService.getRole() || '').toLowerCase() === 'farmer';
+  }
 
   async ngOnInit(): Promise<void> {
     await this.loadGroups();
@@ -103,6 +110,10 @@ export class LoanPageComponent {
   }
 
   async saveContributionEntry(): Promise<void> {
+    if (this.isReadOnly) {
+      return;
+    }
+
     const groupId = this.getGroupIdForPond(this.entryPondId);
     if (!groupId || !this.entryFarmerId || this.entryAmount === null) {
       this.setMessage('Please select pond, farmer, and amount.', true);
@@ -165,6 +176,10 @@ export class LoanPageComponent {
   }
 
   startEdit(row: CapitalTransactionRow): void {
+    if (this.isReadOnly) {
+      return;
+    }
+
     this.editingTransactionId = row.id;
     this.editingAmount = Number(row.amount);
   }
@@ -175,6 +190,10 @@ export class LoanPageComponent {
   }
 
   async saveEditedAmount(row: CapitalTransactionRow): Promise<void> {
+    if (this.isReadOnly) {
+      return;
+    }
+
     const groupId = this.getGroupIdForPond(this.gridPondId);
     if (!groupId || this.editingAmount === null) {
       return;

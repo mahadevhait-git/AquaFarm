@@ -8,11 +8,11 @@
     {{ customMessage }}
   </div>
 
-  <button type="button" (click)="showEntryForm = !showEntryForm">
+  <button *ngIf="!isReadOnly" type="button" (click)="showEntryForm = !showEntryForm">
     {{ showEntryForm ? ('common.cancel' | i18n) : ('loan.new' | i18n) }}
   </button>
 
-  <div class="card" style="margin-top: 20px;" *ngIf="showEntryForm">
+  <div class="card" style="margin-top: 20px;" *ngIf="showEntryForm && !isReadOnly">
       <h3 style="margin-top: 0;">{{ 'loan.formTitle' | i18n }}</h3>
 
       <div class="form-group">
@@ -93,7 +93,7 @@
           <th>{{ 'loan.memberName' | i18n }}</th>
           <th>{{ 'loan.principal' | i18n }}</th>
           <th>{{ 'loan.contributionDate' | i18n }}</th>
-          <th>{{ 'loan.actions' | i18n }}</th>
+          <th *ngIf="!isReadOnly">{{ 'loan.actions' | i18n }}</th>
         </tr>
       </thead>
       <tbody>
@@ -114,7 +114,7 @@
             </ng-template>
           </td>
           <td>{{ row.contributionDate | date:'mediumDate' }}</td>
-          <td style="display: flex; gap: 8px;">
+          <td *ngIf="!isReadOnly" style="display: flex; gap: 8px;">
             <ng-container *ngIf="editingTransactionId === row.id; else editBtn">
               <button type="button" (click)="saveEditedAmount(row)" [disabled]="savingEdit">{{ 'loan.save' | i18n }}</button>
               <button type="button" class="danger" (click)="cancelEdit()">{{ 'common.cancel' | i18n }}</button>

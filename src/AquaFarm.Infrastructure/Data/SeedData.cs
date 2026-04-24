@@ -401,5 +401,51 @@ IF NOT EXISTS (SELECT 1 FROM sys.indexes WHERE name = 'IX_ExpenseBills_ExpenseId
 BEGIN
     CREATE INDEX [IX_ExpenseBills_ExpenseId_UploadedAt] ON [ExpenseBills]([ExpenseId], [UploadedAt]);
 END;");
+
+        context.Database.ExecuteSqlRaw(@"
+IF OBJECT_ID(N'[ContributionPayouts]', N'U') IS NULL
+BEGIN
+    CREATE TABLE [ContributionPayouts](
+        [Id] uniqueidentifier NOT NULL,
+        [PondId] uniqueidentifier NOT NULL,
+        [GroupId] uniqueidentifier NOT NULL,
+        [FarmerId] uniqueidentifier NOT NULL,
+        [ManagerId] uniqueidentifier NOT NULL,
+        [CapitalTransactionId] uniqueidentifier NOT NULL,
+        [ContributionDate] datetime2 NOT NULL,
+        [PrincipalAmount] decimal(18,2) NOT NULL,
+        [AnnualInterestRate] decimal(18,4) NOT NULL,
+        [InterestAmount] decimal(18,2) NOT NULL,
+        [TotalAmount] decimal(18,2) NOT NULL,
+        [Status] int NOT NULL,
+        [PaidAt] datetime2 NOT NULL,
+        [ConfirmedAt] datetime2 NULL,
+        [CreatedAt] datetime2 NOT NULL,
+        CONSTRAINT [PK_ContributionPayouts] PRIMARY KEY ([Id]),
+        CONSTRAINT [FK_ContributionPayouts_Ponds_PondId] FOREIGN KEY ([PondId]) REFERENCES [Ponds]([Id]) ON DELETE NO ACTION,
+        CONSTRAINT [FK_ContributionPayouts_Groups_GroupId] FOREIGN KEY ([GroupId]) REFERENCES [Groups]([Id]) ON DELETE NO ACTION,
+        CONSTRAINT [FK_ContributionPayouts_Users_FarmerId] FOREIGN KEY ([FarmerId]) REFERENCES [Users]([Id]) ON DELETE NO ACTION,
+        CONSTRAINT [FK_ContributionPayouts_Users_ManagerId] FOREIGN KEY ([ManagerId]) REFERENCES [Users]([Id]) ON DELETE NO ACTION,
+        CONSTRAINT [FK_ContributionPayouts_CapitalTransactions_CapitalTransactionId] FOREIGN KEY ([CapitalTransactionId]) REFERENCES [CapitalTransactions]([Id]) ON DELETE NO ACTION
+    );
+END;");
+
+        context.Database.ExecuteSqlRaw(@"
+IF NOT EXISTS (SELECT 1 FROM sys.indexes WHERE name = 'UX_ContributionPayouts_CapitalTransactionId' AND object_id = OBJECT_ID('ContributionPayouts'))
+BEGIN
+    CREATE UNIQUE INDEX [UX_ContributionPayouts_CapitalTransactionId] ON [ContributionPayouts]([CapitalTransactionId]);
+END;");
+
+        context.Database.ExecuteSqlRaw(@"
+IF NOT EXISTS (SELECT 1 FROM sys.indexes WHERE name = 'IX_ContributionPayouts_PondId_FarmerId_Status' AND object_id = OBJECT_ID('ContributionPayouts'))
+BEGIN
+    CREATE INDEX [IX_ContributionPayouts_PondId_FarmerId_Status] ON [ContributionPayouts]([PondId], [FarmerId], [Status]);
+END;");
+
+        context.Database.ExecuteSqlRaw(@"
+IF NOT EXISTS (SELECT 1 FROM sys.indexes WHERE name = 'IX_ContributionPayouts_FarmerId_CreatedAt' AND object_id = OBJECT_ID('ContributionPayouts'))
+BEGIN
+    CREATE INDEX [IX_ContributionPayouts_FarmerId_CreatedAt] ON [ContributionPayouts]([FarmerId], [CreatedAt]);
+END;");
     }
 }

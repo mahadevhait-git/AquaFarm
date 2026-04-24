@@ -117,6 +117,30 @@ export class ApiService {
       this.http.put(`${this.apiBaseUrl}/groups/${groupId}/capital-transactions/${transactionId}`, { amount }, {
         headers: this.authHeaders(),
       }),
+
+    payoutSetup: (pondId: string, farmerId: string, annualInterestRate: number): Observable<any> =>
+      this.http.get(`${this.apiBaseUrl}/groups/payouts/setup`, {
+        headers: this.authHeaders(),
+        params: {
+          pondId,
+          farmerId,
+          annualInterestRate: `${annualInterestRate}`,
+        },
+      }),
+
+    createPayouts: (
+      payload: { pondId: string; farmerId: string; annualInterestRate: number; capitalTransactionIds: string[] },
+    ): Observable<any> =>
+      this.http.post(`${this.apiBaseUrl}/groups/payouts`, payload, { headers: this.authHeaders() }),
+
+    farmerPayouts: (pondId?: string): Observable<any> =>
+      this.http.get(`${this.apiBaseUrl}/groups/payouts/farmer`, {
+        headers: this.authHeaders(),
+        params: pondId ? { pondId } : {},
+      }),
+
+    confirmPayout: (payoutId: string): Observable<any> =>
+      this.http.post(`${this.apiBaseUrl}/groups/payouts/${payoutId}/confirm`, {}, { headers: this.authHeaders() }),
   };
 
   loans = {

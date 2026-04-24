@@ -108,10 +108,6 @@ public class GroupsController : ControllerBase
         {
             return Unauthorized("Session is stale. Please logout and login again.");
         }
-        if (loggedInUser.Role == UserRole.Farmer)
-        {
-            return Forbid();
-        }
 
         var group = await GetAccessibleGroup(groupId, loggedInUser);
         if (group is null)
@@ -170,10 +166,6 @@ public class GroupsController : ControllerBase
         if (loggedInUser is null)
         {
             return Unauthorized("Session is stale. Please logout and login again.");
-        }
-        if (loggedInUser.Role == UserRole.Farmer)
-        {
-            return Forbid();
         }
 
         var group = await GetAccessibleGroup(groupId, loggedInUser);
@@ -264,10 +256,6 @@ public class GroupsController : ControllerBase
         if (loggedInUser is null)
         {
             return Unauthorized("Session is stale. Please logout and login again.");
-        }
-        if (loggedInUser.Role == UserRole.Farmer)
-        {
-            return Forbid();
         }
 
         var group = await GetAccessibleGroup(groupId, loggedInUser);
@@ -413,7 +401,6 @@ public class GroupsController : ControllerBase
         {
             return Unauthorized("Session is stale. Please logout and login again.");
         }
-
         var group = await GetAccessibleGroup(groupId, loggedInUser);
         if (group is null)
         {
@@ -712,6 +699,352 @@ public class GroupsController : ControllerBase
 
         await RecalculateLoanTotalFromTransactions(groupId, transaction.FarmerId);
         return Ok(new { message = "Capital transaction updated successfully." });
+    }
+
+    [HttpGet("payouts/setup")]
+    public async Task<IActionResult> GetPayoutSetup(
+        [FromQuery] Guid pondId,
+        [FromQuery] Guid farmerId,
+        [FromQuery] decimal annualInterestRate = 0m)
+    {
+        var loggedInUser = await GetLoggedInUser();
+        if (loggedInUser is null)
+        {
+            return Unauthorized("Session is stale. Please logout and login again.");
+        }
+        if (loggedInUser.Role == UserRole.Farmer)
+        {
+            return Forbid();
+        }
+
+        if (pondId == Guid.Empty || farmerId == Guid.Empty)
+        {
+            return BadRequest("Pond and farmer are required.");
+        }
+
+        var pond = await _dbContext.Ponds
+            .Include(p => p.Group)
+            .FirstOrDefaultAsync(p => p.Id == pondId);
+        if (pond is null)
+        {
+            return NotFound("Pond not found.");
+        }
+
+        if (!CanManagePond(loggedInUser, pond))
+        {
+            return Forbid();
+        }
+
+        if (!pond.GroupId.HasValue)
+        {
+            return BadRequest("Selected pond is not linked to any group.");
+        }
+
+        var membership = await _dbContext.GroupMemberships
+            .Include(m => m.User)
+            .FirstOrDefaultAsync(m => m.GroupId == pond.GroupId.Value && m.UserId == farmerId);
+        if (membership is null || membership.User is null || membership.User.Role != UserRole.Farmer)
+        {
+            return BadRequest("Selected farmer is not a member of the pond group.");
+        }
+
+        var payouts = await _dbContext.ContributionPayouts
+            .Where(p => p.PondId == pondId && p.FarmerId == farmerId)
+            .ToDictionaryAsync(p => p.CapitalTransactionId, p => p);
+
+        var rows = await _dbContext.CapitalTransactions
+            .Where(c => c.GroupId == pond.GroupId.Value && c.FarmerId == farmerId && c.Amount > 0)
+            .OrderBy(c => c.ContributionDate)
+            .ThenBy(c => c.CreatedAt)
+            .Select(c => new
+            {
+                c.Id,
+                c.ContributionDate,
+                PrincipalAmount = c.Amount
+            })
+            .ToListAsync();
+
+        var normalizedRate = annualInterestRate < 0 ? 0m : annualInterestRate;
+        var result = rows.Select(row =>
+        {
+            var existingPayout = payouts.TryGetValue(row.Id, out var payout) ? payout : null;
+            var interest = CalculateSimpleInterest(row.PrincipalAmount, row.ContributionDate, normalizedRate);
+            return new
+            {
+                capitalTransactionId = row.Id,
+                contributionDate = row.ContributionDate,
+                principalAmount = row.PrincipalAmount,
+                annualInterestRate = normalizedRate,
+                interestAmount = interest,
+                totalAmount = row.PrincipalAmount + interest,
+                canSelect = existingPayout is null,
+                status = existingPayout?.Status.ToString(),
+                paidAt = existingPayout?.PaidAt,
+                confirmedAt = existingPayout?.ConfirmedAt
+            };
+        });
+
+        return Ok(new
+        {
+            pondId = pond.Id,
+            pondName = pond.Name,
+            farmerId = membership.UserId,
+            farmerName = $"{membership.User.FirstName} {membership.User.LastName}",
+            annualInterestRate = normalizedRate,
+            rows = result
+        });
+    }
+
+    [HttpPost("payouts")]
+    public async Task<IActionResult> CreatePayouts([FromBody] CreateContributionPayoutRequest request)
+    {
+        var loggedInUser = await GetLoggedInUser();
+        if (loggedInUser is null)
+        {
+            return Unauthorized("Session is stale. Please logout and login again.");
+        }
+        if (loggedInUser.Role == UserRole.Farmer)
+        {
+            return Forbid();
+        }
+
+        if (request.PondId == Guid.Empty || request.FarmerId == Guid.Empty)
+        {
+            return BadRequest("Pond and farmer are required.");
+        }
+
+        if (request.CapitalTransactionIds is null || request.CapitalTransactionIds.Count == 0)
+        {
+            return BadRequest("Please select at least one contribution entry.");
+        }
+
+        var pond = await _dbContext.Ponds
+            .FirstOrDefaultAsync(p => p.Id == request.PondId);
+        if (pond is null)
+        {
+            return NotFound("Pond not found.");
+        }
+
+        if (!CanManagePond(loggedInUser, pond))
+        {
+            return Forbid();
+        }
+
+        if (!pond.GroupId.HasValue)
+        {
+            return BadRequest("Selected pond is not linked to any group.");
+        }
+
+        var membership = await _dbContext.GroupMemberships
+            .Include(m => m.User)
+            .FirstOrDefaultAsync(m => m.GroupId == pond.GroupId.Value && m.UserId == request.FarmerId);
+        if (membership is null || membership.User is null || membership.User.Role != UserRole.Farmer)
+        {
+            return BadRequest("Selected farmer is not a member of this pond group.");
+        }
+
+        var transactionIds = request.CapitalTransactionIds
+            .Where(id => id != Guid.Empty)
+            .Distinct()
+            .ToList();
+        if (transactionIds.Count == 0)
+        {
+            return BadRequest("Please select valid contribution entries.");
+        }
+
+        var transactions = await _dbContext.CapitalTransactions
+            .Where(c => transactionIds.Contains(c.Id)
+                && c.GroupId == pond.GroupId.Value
+                && c.FarmerId == request.FarmerId
+                && c.Amount > 0)
+            .ToListAsync();
+        if (transactions.Count == 0)
+        {
+            return BadRequest("No valid contribution entries were selected.");
+        }
+
+        var existingPaidIds = await _dbContext.ContributionPayouts
+            .Where(p => p.PondId == request.PondId && p.FarmerId == request.FarmerId && transactionIds.Contains(p.CapitalTransactionId))
+            .Select(p => p.CapitalTransactionId)
+            .ToListAsync();
+
+        var payableTransactions = transactions
+            .Where(c => !existingPaidIds.Contains(c.Id))
+            .ToList();
+        if (payableTransactions.Count == 0)
+        {
+            return BadRequest("Selected entries are already marked for payment.");
+        }
+
+        var normalizedRate = request.AnnualInterestRate < 0 ? 0m : request.AnnualInterestRate;
+        var created = new List<object>();
+
+        foreach (var transaction in payableTransactions)
+        {
+            var interest = CalculateSimpleInterest(transaction.Amount, transaction.ContributionDate, normalizedRate);
+            var payout = new ContributionPayout
+            {
+                Id = Guid.NewGuid(),
+                PondId = request.PondId,
+                GroupId = pond.GroupId.Value,
+                FarmerId = request.FarmerId,
+                ManagerId = loggedInUser.Id,
+                CapitalTransactionId = transaction.Id,
+                ContributionDate = transaction.ContributionDate,
+                PrincipalAmount = transaction.Amount,
+                AnnualInterestRate = normalizedRate,
+                InterestAmount = interest,
+                TotalAmount = transaction.Amount + interest,
+                Status = PayoutStatus.Pending,
+                PaidAt = DateTime.UtcNow,
+                CreatedAt = DateTime.UtcNow
+            };
+
+            _dbContext.ContributionPayouts.Add(payout);
+            created.Add(new
+            {
+                payoutId = payout.Id,
+                capitalTransactionId = payout.CapitalTransactionId,
+                payout.PrincipalAmount,
+                payout.InterestAmount,
+                payout.TotalAmount,
+                status = payout.Status.ToString()
+            });
+        }
+
+        await _dbContext.SaveChangesAsync();
+
+        return Ok(new
+        {
+            message = "Payout entries submitted successfully.",
+            pondId = pond.Id,
+            pondName = pond.Name,
+            farmerId = request.FarmerId,
+            farmerName = $"{membership.User.FirstName} {membership.User.LastName}",
+            count = created.Count,
+            payouts = created
+        });
+    }
+
+    [HttpGet("payouts/farmer")]
+    public async Task<IActionResult> GetFarmerPayouts([FromQuery] Guid? pondId = null)
+    {
+        var loggedInUser = await GetLoggedInUser();
+        if (loggedInUser is null)
+        {
+            return Unauthorized("Session is stale. Please logout and login again.");
+        }
+
+        IQueryable<ContributionPayout> query = _dbContext.ContributionPayouts
+            .Include(p => p.Pond)
+            .Include(p => p.Manager)
+            .AsQueryable();
+
+        if (loggedInUser.Role == UserRole.Farmer)
+        {
+            query = query.Where(p => p.FarmerId == loggedInUser.Id);
+        }
+        else if (loggedInUser.Role == UserRole.GroupManager)
+        {
+            query = query.Where(p => p.ManagerId == loggedInUser.Id);
+        }
+
+        if (pondId.HasValue && pondId.Value != Guid.Empty)
+        {
+            query = query.Where(p => p.PondId == pondId.Value);
+        }
+
+        var result = await query
+            .OrderByDescending(p => p.PaidAt)
+            .ThenByDescending(p => p.CreatedAt)
+            .Select(p => new
+            {
+                payoutId = p.Id,
+                p.PondId,
+                pondName = p.Pond != null ? p.Pond.Name : string.Empty,
+                p.FarmerId,
+                p.ManagerId,
+                managerName = p.Manager != null ? $"{p.Manager.FirstName} {p.Manager.LastName}" : string.Empty,
+                p.CapitalTransactionId,
+                p.ContributionDate,
+                p.PrincipalAmount,
+                p.AnnualInterestRate,
+                p.InterestAmount,
+                p.TotalAmount,
+                status = p.Status.ToString(),
+                p.PaidAt,
+                p.ConfirmedAt
+            })
+            .ToListAsync();
+
+        return Ok(result);
+    }
+
+    [HttpPost("payouts/{payoutId:guid}/confirm")]
+    public async Task<IActionResult> ConfirmFarmerPayout(Guid payoutId)
+    {
+        var loggedInUser = await GetLoggedInUser();
+        if (loggedInUser is null)
+        {
+            return Unauthorized("Session is stale. Please logout and login again.");
+        }
+        if (loggedInUser.Role != UserRole.Farmer)
+        {
+            return Forbid();
+        }
+
+        var payout = await _dbContext.ContributionPayouts.FirstOrDefaultAsync(p => p.Id == payoutId);
+        if (payout is null)
+        {
+            return NotFound("Payout entry not found.");
+        }
+
+        if (payout.FarmerId != loggedInUser.Id)
+        {
+            return Forbid();
+        }
+
+        if (payout.Status == PayoutStatus.Completed)
+        {
+            return Ok(new { message = "Payment already confirmed.", status = payout.Status.ToString() });
+        }
+
+        payout.Status = PayoutStatus.Completed;
+        payout.ConfirmedAt = DateTime.UtcNow;
+        await _dbContext.SaveChangesAsync();
+
+        return Ok(new
+        {
+            message = "Payment confirmed successfully.",
+            payoutId = payout.Id,
+            status = payout.Status.ToString(),
+            payout.ConfirmedAt
+        });
+    }
+
+    private static bool CanManagePond(AppUser user, Pond pond)
+    {
+        return user.Role == UserRole.Admin || pond.OwnerId == user.Id;
+    }
+
+    private static decimal CalculateSimpleInterest(decimal principalAmount, DateTime contributionDate, decimal annualRatePercent)
+    {
+        if (principalAmount <= 0 || annualRatePercent <= 0)
+        {
+            return 0m;
+        }
+
+        var fromDate = contributionDate.Date;
+        var toDate = DateTime.UtcNow.Date;
+        if (toDate <= fromDate)
+        {
+            return 0m;
+        }
+
+        var elapsedDays = (decimal)(toDate - fromDate).TotalDays;
+        var years = elapsedDays / 365m;
+        var rate = annualRatePercent / 100m;
+        return decimal.Round(principalAmount * rate * years, 2, MidpointRounding.AwayFromZero);
     }
 
     private async Task RecalculateLoanTotalFromTransactions(Guid groupId, Guid farmerId)

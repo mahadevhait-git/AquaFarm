@@ -36,6 +36,13 @@ public class ExpensesController : ControllerBase
             return Unauthorized("Session is stale. Please logout and login again.");
         }
 
+        var farmerGroupIds = loggedInUser.Role == UserRole.Farmer
+            ? await _dbContext.GroupMemberships
+                .Where(m => m.UserId == loggedInUser.Id)
+                .Select(m => m.GroupId)
+                .ToListAsync()
+            : new List<Guid>();
+
         var expensesQuery = _dbContext.Expenses
             .Include(e => e.Pond)
             .ThenInclude(p => p!.Group)
@@ -48,7 +55,14 @@ public class ExpensesController : ControllerBase
                 return NotFound("Selected pond not found.");
             }
 
-            if (!CanManagePond(loggedInUser, selectedPond))
+            var canViewSelectedPond =
+                loggedInUser.Role == UserRole.Admin
+                || selectedPond.OwnerId == loggedInUser.Id
+                || (loggedInUser.Role == UserRole.Farmer
+                    && selectedPond.GroupId.HasValue
+                    && farmerGroupIds.Contains(selectedPond.GroupId.Value));
+
+            if (!canViewSelectedPond)
             {
                 return Ok(Array.Empty<ExpenseDto>());
             }
@@ -59,7 +73,10 @@ public class ExpensesController : ControllerBase
         {
             expensesQuery = expensesQuery.Where(e =>
                 e.CreatedById == loggedInUser.Id
-                || e.Pond!.OwnerId == loggedInUser.Id);
+                || e.Pond!.OwnerId == loggedInUser.Id
+                || (loggedInUser.Role == UserRole.Farmer
+                    && e.Pond!.GroupId.HasValue
+                    && farmerGroupIds.Contains(e.Pond.GroupId.Value)));
         }
 
         var expenses = await expensesQuery

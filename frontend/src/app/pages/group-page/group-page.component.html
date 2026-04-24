@@ -70,7 +70,7 @@
             <th>Phone</th>
             <th>Email</th>
             <th>Joined</th>
-            <th>Actions</th>
+            <th *ngIf="!isReadOnly">Actions</th>
           </tr>
         </thead>
         <tbody>
@@ -79,14 +79,14 @@
             <td>{{ member.phoneNumber }}</td>
             <td>{{ member.email }}</td>
             <td>{{ member.joinedAt | date }}</td>
-            <td><button type="button" class="danger" (click)="removeMember(member)">Remove</button></td>
+            <td *ngIf="!isReadOnly"><button type="button" class="danger" (click)="removeMember(member)">Remove</button></td>
           </tr>
         </tbody>
       </table>
       <p *ngIf="!membersLoading && members.length === 0">No members found.</p>
     </div>
 
-    <div class="card" style="margin-top: 16px;" *ngIf="showMemberOptions">
+    <div class="card" style="margin-top: 16px;" *ngIf="showMemberOptions && !isReadOnly">
       <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 8px;">
         <h4 style="margin: 0;">Create New Farmer</h4>
         <button
@@ -137,7 +137,7 @@
       </ng-container>
     </div>
 
-    <div class="card" style="margin-top: 16px;" *ngIf="showMemberOptions">
+    <div class="card" style="margin-top: 16px;" *ngIf="showMemberOptions && !isReadOnly">
       <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 8px;">
         <h4 style="margin: 0;">Add Members</h4>
         <button

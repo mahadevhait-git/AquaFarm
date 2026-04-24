@@ -28,3 +28,9 @@ public enum MembershipRole
     Member,
     Manager
 }
+
+public enum PayoutStatus
+{
+    Pending,
+    Completed
+}

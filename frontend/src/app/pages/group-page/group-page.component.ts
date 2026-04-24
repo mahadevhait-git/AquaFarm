@@ -5,6 +5,7 @@ import { HttpErrorResponse } from '@angular/common/http';
 import { firstValueFrom } from 'rxjs';
 import { Group, GroupMember, GroupMemberCandidate, Pond } from '../../models';
 import { ApiService } from '../../services/api.service';
+import { AuthService } from '../../services/auth.service';
 import { I18nPipe } from '../../pipes/i18n.pipe';
 
 @Component({
@@ -32,6 +33,7 @@ export class GroupPageComponent implements OnInit {
   errorMessage = '';
   successMessage = '';
   generatedFarmerCredentials: { userName: string; password: string } | null = null;
+  readonly isReadOnly: boolean;
 
   newFarmerFirstName = '';
   newFarmerLastName = '';
@@ -39,7 +41,12 @@ export class GroupPageComponent implements OnInit {
   newFarmerEmail = '';
   newFarmerPhoneNumber = '';
 
-  constructor(private apiService: ApiService) {}
+  constructor(
+    private apiService: ApiService,
+    private authService: AuthService,
+  ) {
+    this.isReadOnly = (this.authService.getRole() || '').toLowerCase() === 'farmer';
+  }
 
   ngOnInit(): void {
     this.loadGroups();
@@ -68,7 +75,7 @@ export class GroupPageComponent implements OnInit {
   }
 
   async selectPond(pond: Pond): Promise<void> {
-    const ensuredPond = await this.ensureGroupForPond(pond);
+    const ensuredPond = this.isReadOnly ? pond : await this.ensureGroupForPond(pond);
     if (!ensuredPond) {
       return;
     }
@@ -82,7 +89,7 @@ export class GroupPageComponent implements OnInit {
     this.selectedPond = ensuredPond;
     this.selectedGroup = linkedGroup;
     this.showMemberOptions = true;
-    this.showAddMembersSection = true;
+    this.showAddMembersSection = !this.isReadOnly;
     this.memberSearch = '';
     this.candidateSearch = '';
     await this.loadSelectedGroupDetails();
@@ -203,6 +210,10 @@ export class GroupPageComponent implements OnInit {
   }
 
   async addMember(candidate: GroupMemberCandidate): Promise<void> {
+    if (this.isReadOnly) {
+      return;
+    }
+
     if (!this.selectedGroup) {
       return;
     }
@@ -220,6 +231,10 @@ export class GroupPageComponent implements OnInit {
   }
 
   async createFarmer(): Promise<void> {
+    if (this.isReadOnly) {
+      return;
+    }
+
     if (!this.selectedGroup) {
       return;
     }
@@ -268,6 +283,10 @@ export class GroupPageComponent implements OnInit {
   }
 
   async removeMember(member: GroupMember): Promise<void> {
+    if (this.isReadOnly) {
+      return;
+    }
+
     if (!this.selectedGroup) {
       return;
     }

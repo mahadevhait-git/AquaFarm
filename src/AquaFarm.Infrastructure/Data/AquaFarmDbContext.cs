@@ -20,6 +20,7 @@ public class AquaFarmDbContext : DbContext
     public DbSet<ExpenseBill> ExpenseBills => Set<ExpenseBill>();
     public DbSet<Loan> Loans => Set<Loan>();
     public DbSet<CapitalTransaction> CapitalTransactions => Set<CapitalTransaction>();
+    public DbSet<ContributionPayout> ContributionPayouts => Set<ContributionPayout>();
     public DbSet<LoanRepayment> LoanRepayments => Set<LoanRepayment>();
     public DbSet<AuditLog> AuditLogs => Set<AuditLog>();
 
@@ -63,6 +64,14 @@ public class AquaFarmDbContext : DbContext
         modelBuilder.Entity<CapitalTransaction>().HasOne(c => c.Group).WithMany(g => g.CapitalTransactions).HasForeignKey(c => c.GroupId).OnDelete(DeleteBehavior.Cascade);
         modelBuilder.Entity<CapitalTransaction>().HasOne(c => c.Farmer).WithMany(u => u.CapitalTransactions).HasForeignKey(c => c.FarmerId).OnDelete(DeleteBehavior.Restrict);
         modelBuilder.Entity<CapitalTransaction>().HasIndex(c => new { c.GroupId, c.FarmerId, c.ContributionDate });
+        modelBuilder.Entity<ContributionPayout>().HasOne(p => p.Pond).WithMany().HasForeignKey(p => p.PondId).OnDelete(DeleteBehavior.Restrict);
+        modelBuilder.Entity<ContributionPayout>().HasOne(p => p.Group).WithMany().HasForeignKey(p => p.GroupId).OnDelete(DeleteBehavior.Restrict);
+        modelBuilder.Entity<ContributionPayout>().HasOne(p => p.Farmer).WithMany(u => u.ContributionPayoutsAsFarmer).HasForeignKey(p => p.FarmerId).OnDelete(DeleteBehavior.Restrict);
+        modelBuilder.Entity<ContributionPayout>().HasOne(p => p.Manager).WithMany(u => u.ContributionPayoutsAsManager).HasForeignKey(p => p.ManagerId).OnDelete(DeleteBehavior.Restrict);
+        modelBuilder.Entity<ContributionPayout>().HasOne(p => p.CapitalTransaction).WithMany(c => c.Payouts).HasForeignKey(p => p.CapitalTransactionId).OnDelete(DeleteBehavior.Restrict);
+        modelBuilder.Entity<ContributionPayout>().HasIndex(p => p.CapitalTransactionId).IsUnique();
+        modelBuilder.Entity<ContributionPayout>().HasIndex(p => new { p.PondId, p.FarmerId, p.Status });
+        modelBuilder.Entity<ContributionPayout>().HasIndex(p => new { p.FarmerId, p.CreatedAt });
 
         base.OnModelCreating(modelBuilder);
     }

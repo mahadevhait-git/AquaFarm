@@ -21,6 +21,8 @@ public class AppUser
     public ICollection<Loan> LoansLent { get; set; } = new List<Loan>();
     public ICollection<Loan> LoansBorrowed { get; set; } = new List<Loan>();
     public ICollection<CapitalTransaction> CapitalTransactions { get; set; } = new List<CapitalTransaction>();
+    public ICollection<ContributionPayout> ContributionPayoutsAsFarmer { get; set; } = new List<ContributionPayout>();
+    public ICollection<ContributionPayout> ContributionPayoutsAsManager { get; set; } = new List<ContributionPayout>();
 }
 
 public class Pond
@@ -158,6 +160,32 @@ public class CapitalTransaction
     public AppUser? Farmer { get; set; }
     public DateTime ContributionDate { get; set; } = DateTime.UtcNow;
     public decimal Amount { get; set; }
+    public DateTime CreatedAt { get; set; } = DateTime.UtcNow;
+    public ICollection<ContributionPayout> Payouts { get; set; } = new List<ContributionPayout>();
+}
+
+public class ContributionPayout
+{
+    [Key]
+    public Guid Id { get; set; }
+    public Guid PondId { get; set; }
+    public Pond? Pond { get; set; }
+    public Guid GroupId { get; set; }
+    public Group? Group { get; set; }
+    public Guid FarmerId { get; set; }
+    public AppUser? Farmer { get; set; }
+    public Guid ManagerId { get; set; }
+    public AppUser? Manager { get; set; }
+    public Guid CapitalTransactionId { get; set; }
+    public CapitalTransaction? CapitalTransaction { get; set; }
+    public DateTime ContributionDate { get; set; } = DateTime.UtcNow;
+    public decimal PrincipalAmount { get; set; }
+    public decimal AnnualInterestRate { get; set; }
+    public decimal InterestAmount { get; set; }
+    public decimal TotalAmount { get; set; }
+    public PayoutStatus Status { get; set; } = PayoutStatus.Pending;
+    public DateTime PaidAt { get; set; } = DateTime.UtcNow;
+    public DateTime? ConfirmedAt { get; set; }
     public DateTime CreatedAt { get; set; } = DateTime.UtcNow;
 }
 

@@ -7,6 +7,7 @@ import { Router } from '@angular/router';
 import { firstValueFrom } from 'rxjs';
 import { Expense, Group, Pond } from '../../models';
 import { ApiService } from '../../services/api.service';
+import { AuthService } from '../../services/auth.service';
 import { I18nPipe } from '../../pipes/i18n.pipe';
 
 type FarmerContributionRow = {
@@ -35,14 +36,19 @@ export class InvestmentSummaryPageComponent {
   loadingGroups = true;
   loadingSummary = false;
   errorMessage = '';
+  userRole = '';
+  userId = '';
 
   constructor(
     private apiService: ApiService,
+    private authService: AuthService,
     private location: Location,
     private router: Router,
   ) {}
 
   async ngOnInit(): Promise<void> {
+    this.userRole = this.authService.getRole() ?? '';
+    this.userId = this.authService.getUserId() ?? '';
     await this.loadGroups();
   }
 
@@ -86,11 +92,12 @@ export class InvestmentSummaryPageComponent {
         firstValueFrom(this.apiService.expenses.list(this.selectedPondId)),
       ]);
 
-      this.farmerRows = (Array.isArray(contributionData) ? contributionData : []).map((item: any) => ({
+      const rows = (Array.isArray(contributionData) ? contributionData : []).map((item: any) => ({
         userId: item.userId,
         name: item.name,
         totalContribution: Number(item.investedAmount ?? 0),
       }));
+      this.farmerRows = rows;
       this.expenseCategoryRows = this.getExpenseCategoryRows(Array.isArray(expenseData) ? expenseData : []);
       this.errorMessage = '';
     } catch (error) {

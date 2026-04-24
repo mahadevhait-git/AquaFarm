@@ -4,15 +4,24 @@ import { ActivatedRoute } from '@angular/router';
 import { HttpErrorResponse } from '@angular/common/http';
 import { FormsModule } from '@angular/forms';
 import { firstValueFrom } from 'rxjs';
-import { Pond } from '../../models';
 import { ApiService } from '../../services/api.service';
+import { AuthService } from '../../services/auth.service';
 import { I18nPipe } from '../../pipes/i18n.pipe';
 
 type FarmerTransactionDetailRow = {
   id: string;
+  payoutId?: string;
   contributionDate: string;
-  amount: number;
+  paymentDate?: string;
+  principalAmount: number;
+  annualInterestRate?: number;
   interestToDate: number;
+  totalAmount: number;
+  canSelect: boolean;
+  status: string;
+  managerName?: string;
+  pondName?: string;
+  selected: boolean;
 };
 
 @Component({
@@ -25,8 +34,13 @@ export class FarmerTransactionDetailsPageComponent {
   pondId = '';
   farmerId = '';
   farmerName = 'Farmer';
+  pondName = '';
   interestPercentage = 0;
   appliedInterestPercentage = 0;
+  userRole = '';
+  userId = '';
+  submitting = false;
+  confirmingPayoutId: string | null = null;
 
   rows: FarmerTransactionDetailRow[] = [];
   principalAmount = 0;
@@ -38,14 +52,22 @@ export class FarmerTransactionDetailsPageComponent {
 
   constructor(
     private apiService: ApiService,
+    private authService: AuthService,
     private route: ActivatedRoute,
     private location: Location,
   ) {}
 
   async ngOnInit(): Promise<void> {
     this.pondId = this.route.snapshot.paramMap.get('pondId') ?? '';
-    this.farmerId = this.route.snapshot.paramMap.get('farmerId') ?? '';
+    const routeFarmerId = this.route.snapshot.paramMap.get('farmerId') ?? '';
+    this.farmerId = routeFarmerId;
     this.farmerName = this.route.snapshot.queryParamMap.get('name') ?? 'Farmer';
+    this.userRole = this.authService.getRole() ?? '';
+    this.userId = this.authService.getUserId() ?? '';
+    if (this.userRole === 'Farmer') {
+      // Prefer token user id, but never wipe a valid route id with empty value.
+      this.farmerId = this.userId || routeFarmerId;
+    }
 
     await this.loadDetails();
   }
@@ -63,88 +85,146 @@ export class FarmerTransactionDetailsPageComponent {
 
     this.loading = true;
     try {
-      const ponds = await firstValueFrom(this.apiService.ponds.list());
-      const pondList = Array.isArray(ponds) ? (ponds as Pond[]) : [];
-      const selectedPond = pondList.find(p => p.id === this.pondId);
-      const groupId = selectedPond?.groupId ?? '';
-      if (!groupId) {
-        this.rows = [];
-        this.principalAmount = 0;
-        this.totalInterest = 0;
-        this.totalAmount = 0;
-        this.errorMessage = 'No group linked to selected pond.';
-        return;
+      if (this.userRole === 'Farmer') {
+        const response = await firstValueFrom(this.apiService.groups.farmerPayouts(this.pondId));
+        const payouts = (Array.isArray(response) ? response : []).filter((item: any) => item.farmerId === this.farmerId);
+        this.rows = payouts.map((item: any) => ({
+          id: String(item.capitalTransactionId),
+          payoutId: String(item.payoutId),
+          contributionDate: String(item.contributionDate ?? ''),
+          principalAmount: Number(item.principalAmount ?? 0),
+          annualInterestRate: Number(item.annualInterestRate ?? 0),
+          interestToDate: Number(item.interestAmount ?? 0),
+          totalAmount: Number(item.totalAmount ?? 0),
+          canSelect: false,
+          status: String(item.status ?? 'Pending'),
+          managerName: String(item.managerName ?? ''),
+          pondName: String(item.pondName ?? ''),
+          paymentDate: item.paidAt ? String(item.paidAt) : undefined,
+          selected: false,
+        }));
+        this.pondName = this.rows[0]?.pondName ?? '';
+      } else {
+        const response = await firstValueFrom(this.apiService.groups.payoutSetup(this.pondId, this.farmerId, this.interestPercentage));
+        this.farmerName = String(response?.farmerName ?? this.farmerName);
+        this.pondName = String(response?.pondName ?? '');
+        this.rows = (Array.isArray(response?.rows) ? response.rows : []).map((item: any) => ({
+          id: String(item.capitalTransactionId),
+          contributionDate: String(item.contributionDate ?? ''),
+          principalAmount: Number(item.principalAmount ?? 0),
+          annualInterestRate: Number(item.annualInterestRate ?? 0),
+          interestToDate: Number(item.interestAmount ?? 0),
+          totalAmount: Number(item.totalAmount ?? 0),
+          canSelect: Boolean(item.canSelect),
+          status: String(item.status ?? 'Unpaid'),
+          paymentDate: item.paidAt ? String(item.paidAt) : undefined,
+          selected: false,
+        }));
       }
 
-      const response = await firstValueFrom(this.apiService.groups.capitalTransactions(groupId, this.farmerId));
-      const transactions = Array.isArray(response) ? response : [];
-
-      this.rows = transactions.map((item: any) => {
-        const amount = Number(item.amount ?? 0);
-        const contributionDate = item.contributionDate ? String(item.contributionDate) : '';
-        return {
-          id: String(item.id),
-          contributionDate,
-          amount,
-          interestToDate: 0,
-        };
-      });
-
-      this.principalAmount = this.rows.reduce((sum, row) => sum + row.amount, 0);
-      this.totalInterest = 0;
-      this.totalAmount = this.principalAmount;
+      this.recalculateTotals();
       this.errorMessage = '';
     } catch (error) {
       this.errorMessage = this.getErrorMessage(error, 'Failed to load farmer transaction details.');
       this.rows = [];
-      this.principalAmount = 0;
-      this.totalInterest = 0;
-      this.totalAmount = 0;
+      this.recalculateTotals();
     } finally {
       this.loading = false;
     }
   }
 
   applyInterestCalculation(): void {
+    if (this.userRole === 'Farmer') {
+      return;
+    }
+
     const rate = Number(this.interestPercentage ?? 0);
-    const annualRate = Number.isFinite(rate) && rate > 0 ? rate / 100 : 0;
     this.appliedInterestPercentage = Number.isFinite(rate) && rate > 0 ? rate : 0;
-
-    this.rows = this.rows.map(row => ({
-      ...row,
-      interestToDate: this.calculateSimpleInterestToDate(row.amount, row.contributionDate, annualRate),
-    }));
-
-    this.totalInterest = this.rows.reduce((sum, row) => sum + row.interestToDate, 0);
-    this.totalAmount = this.principalAmount + this.totalInterest;
+    this.reloadSetupForRate();
   }
 
-  private calculateSimpleInterestToDate(principal: number, contributionDateValue: string, annualRate: number): number {
-    if (!contributionDateValue || !Number.isFinite(principal) || principal <= 0) {
-      return 0;
+  async onSelectionChange(): Promise<void> {
+    this.recalculateTotals();
+  }
+
+  async submitPayout(): Promise<void> {
+    if (this.userRole === 'Farmer') {
+      return;
     }
 
-    const contributionRawDate = new Date(contributionDateValue);
-    const contributionDate = new Date(
-      contributionRawDate.getFullYear(),
-      contributionRawDate.getMonth(),
-      contributionRawDate.getDate(),
-    );
-    if (Number.isNaN(contributionDate.getTime())) {
-      return 0;
+    const selectedTransactionIds = this.rows
+      .filter(row => row.canSelect && row.selected)
+      .map(row => row.id);
+
+    if (selectedTransactionIds.length === 0) {
+      this.errorMessage = 'Please select at least one contribution entry.';
+      return;
     }
 
-    const nowRawDate = new Date();
-    const now = new Date(nowRawDate.getFullYear(), nowRawDate.getMonth(), nowRawDate.getDate());
-    const millis = now.getTime() - contributionDate.getTime();
-    if (millis <= 0) {
-      return 0;
+    this.submitting = true;
+    try {
+      await firstValueFrom(this.apiService.groups.createPayouts({
+        pondId: this.pondId,
+        farmerId: this.farmerId,
+        annualInterestRate: this.appliedInterestPercentage,
+        capitalTransactionIds: selectedTransactionIds,
+      }));
+      this.errorMessage = '';
+      await this.loadDetails();
+    } catch (error) {
+      this.errorMessage = this.getErrorMessage(error, 'Failed to submit payout details.');
+    } finally {
+      this.submitting = false;
+    }
+  }
+
+  async confirmPayout(row: FarmerTransactionDetailRow): Promise<void> {
+    if (this.userRole !== 'Farmer' || !row.payoutId || row.status === 'Completed') {
+      return;
     }
 
-    const days = millis / (1000 * 60 * 60 * 24);
-    const monthlyRate = annualRate / 12;
-    const monthsElapsed = days / 30;
-    return principal * monthlyRate * monthsElapsed;
+    this.confirmingPayoutId = row.payoutId;
+    try {
+      await firstValueFrom(this.apiService.groups.confirmPayout(row.payoutId));
+      await this.loadDetails();
+    } catch (error) {
+      this.errorMessage = this.getErrorMessage(error, 'Failed to confirm payment.');
+    } finally {
+      this.confirmingPayoutId = null;
+    }
+  }
+
+  private async reloadSetupForRate(): Promise<void> {
+    this.loading = true;
+    try {
+      const response = await firstValueFrom(this.apiService.groups.payoutSetup(this.pondId, this.farmerId, this.appliedInterestPercentage));
+      this.rows = (Array.isArray(response?.rows) ? response.rows : []).map((item: any) => ({
+        id: String(item.capitalTransactionId),
+        contributionDate: String(item.contributionDate ?? ''),
+        principalAmount: Number(item.principalAmount ?? 0),
+        annualInterestRate: Number(item.annualInterestRate ?? 0),
+        interestToDate: Number(item.interestAmount ?? 0),
+        totalAmount: Number(item.totalAmount ?? 0),
+        canSelect: Boolean(item.canSelect),
+        status: String(item.status ?? 'Unpaid'),
+        paymentDate: item.paidAt ? String(item.paidAt) : undefined,
+        selected: false,
+      }));
+      this.recalculateTotals();
+    } catch (error) {
+      this.errorMessage = this.getErrorMessage(error, 'Failed to apply interest.');
+    } finally {
+      this.loading = false;
+    }
+  }
+
+  private recalculateTotals(): void {
+    const sourceRows = this.userRole === 'Farmer'
+      ? this.rows
+      : this.rows.filter(row => row.canSelect && row.selected);
+    this.principalAmount = sourceRows.reduce((sum, row) => sum + row.principalAmount, 0);
+    this.totalInterest = sourceRows.reduce((sum, row) => sum + row.interestToDate, 0);
+    this.totalAmount = sourceRows.reduce((sum, row) => sum + row.totalAmount, 0);
   }
 
   private getErrorMessage(error: unknown, fallback: string): string {
