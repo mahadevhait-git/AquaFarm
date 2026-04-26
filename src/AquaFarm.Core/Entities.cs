@@ -31,6 +31,7 @@ public class Pond
     public Guid Id { get; set; }
     public string Name { get; set; } = default!;
     public string? Location { get; set; }
+    public int? LeasedYears { get; set; }
     public Guid OwnerId { get; set; }
     public AppUser? Owner { get; set; }
     public Guid? GroupId { get; set; }

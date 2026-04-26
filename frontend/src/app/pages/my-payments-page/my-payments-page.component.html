@@ -1,5 +1,6 @@
 <div>
   <h1 class="page-title">My Payments</h1>
+  <div class="success" *ngIf="successMessage">{{ successMessage }}</div>
   <div class="error" *ngIf="errorMessage">{{ errorMessage }}</div>
 
   <div class="card">
@@ -38,16 +39,25 @@
         <td>{{ row.principalAmount | number:'1.2-2' }}</td>
         <td>{{ row.interestAmount | number:'1.2-2' }}</td>
         <td>{{ row.totalAmount | number:'1.2-2' }}</td>
-        <td>{{ row.status }}</td>
+        <td><span [class]="getStatusClass(row.status)">{{ row.status }}</span></td>
         <td>
-          <button
-            type="button"
-            *ngIf="row.status !== 'Completed'"
-            (click)="confirm(row)"
-            [disabled]="confirmingPayoutId === row.payoutId"
-          >
-            {{ confirmingPayoutId === row.payoutId ? 'Confirming...' : 'Confirm' }}
-          </button>
+          <div style="display: flex; gap: 8px; flex-wrap: wrap;" *ngIf="row.status === 'Pending'">
+            <button
+              type="button"
+              (click)="confirm(row)"
+              [disabled]="confirmingPayoutId === row.payoutId || rejectingPayoutId === row.payoutId"
+            >
+              {{ confirmingPayoutId === row.payoutId ? 'Confirming...' : 'Confirm' }}
+            </button>
+            <button
+              type="button"
+              class="danger"
+              (click)="reject(row)"
+              [disabled]="rejectingPayoutId === row.payoutId || confirmingPayoutId === row.payoutId"
+            >
+              {{ rejectingPayoutId === row.payoutId ? 'Rejecting...' : 'Reject' }}
+            </button>
+          </div>
         </td>
       </tr>
     </tbody>

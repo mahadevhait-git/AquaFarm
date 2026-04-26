@@ -777,7 +777,7 @@ public class GroupsController : ControllerBase
                 annualInterestRate = normalizedRate,
                 interestAmount = interest,
                 totalAmount = row.PrincipalAmount + interest,
-                canSelect = existingPayout is null,
+                canSelect = existingPayout is null || existingPayout.Status == PayoutStatus.Rejected,
                 status = existingPayout?.Status.ToString(),
                 paidAt = existingPayout?.PaidAt,
                 confirmedAt = existingPayout?.ConfirmedAt
@@ -863,13 +863,12 @@ public class GroupsController : ControllerBase
             return BadRequest("No valid contribution entries were selected.");
         }
 
-        var existingPaidIds = await _dbContext.ContributionPayouts
+        var existingPayouts = await _dbContext.ContributionPayouts
             .Where(p => p.PondId == request.PondId && p.FarmerId == request.FarmerId && transactionIds.Contains(p.CapitalTransactionId))
-            .Select(p => p.CapitalTransactionId)
-            .ToListAsync();
+            .ToDictionaryAsync(p => p.CapitalTransactionId, p => p);
 
         var payableTransactions = transactions
-            .Where(c => !existingPaidIds.Contains(c.Id))
+            .Where(c => !existingPayouts.TryGetValue(c.Id, out var payout) || payout.Status == PayoutStatus.Rejected)
             .ToList();
         if (payableTransactions.Count == 0)
         {
@@ -882,6 +881,31 @@ public class GroupsController : ControllerBase
         foreach (var transaction in payableTransactions)
         {
             var interest = CalculateSimpleInterest(transaction.Amount, transaction.ContributionDate, normalizedRate);
+
+            if (existingPayouts.TryGetValue(transaction.Id, out var existingPayout) && existingPayout.Status == PayoutStatus.Rejected)
+            {
+                existingPayout.ManagerId = loggedInUser.Id;
+                existingPayout.ContributionDate = transaction.ContributionDate;
+                existingPayout.PrincipalAmount = transaction.Amount;
+                existingPayout.AnnualInterestRate = normalizedRate;
+                existingPayout.InterestAmount = interest;
+                existingPayout.TotalAmount = transaction.Amount + interest;
+                existingPayout.Status = PayoutStatus.Pending;
+                existingPayout.PaidAt = DateTime.UtcNow;
+                existingPayout.ConfirmedAt = null;
+
+                created.Add(new
+                {
+                    payoutId = existingPayout.Id,
+                    capitalTransactionId = existingPayout.CapitalTransactionId,
+                    existingPayout.PrincipalAmount,
+                    existingPayout.InterestAmount,
+                    existingPayout.TotalAmount,
+                    status = existingPayout.Status.ToString()
+                });
+                continue;
+            }
+
             var payout = new ContributionPayout
             {
                 Id = Guid.NewGuid(),
@@ -1009,6 +1033,11 @@ public class GroupsController : ControllerBase
             return Ok(new { message = "Payment already confirmed.", status = payout.Status.ToString() });
         }
 
+        if (payout.Status == PayoutStatus.Rejected)
+        {
+            return BadRequest("Rejected payment cannot be confirmed.");
+        }
+
         payout.Status = PayoutStatus.Completed;
         payout.ConfirmedAt = DateTime.UtcNow;
         await _dbContext.SaveChangesAsync();
@@ -1016,6 +1045,53 @@ public class GroupsController : ControllerBase
         return Ok(new
         {
             message = "Payment confirmed successfully.",
+            payoutId = payout.Id,
+            status = payout.Status.ToString(),
+            payout.ConfirmedAt
+        });
+    }
+
+    [HttpPost("payouts/{payoutId:guid}/reject")]
+    public async Task<IActionResult> RejectFarmerPayout(Guid payoutId)
+    {
+        var loggedInUser = await GetLoggedInUser();
+        if (loggedInUser is null)
+        {
+            return Unauthorized("Session is stale. Please logout and login again.");
+        }
+        if (loggedInUser.Role != UserRole.Farmer)
+        {
+            return Forbid();
+        }
+
+        var payout = await _dbContext.ContributionPayouts.FirstOrDefaultAsync(p => p.Id == payoutId);
+        if (payout is null)
+        {
+            return NotFound("Payout entry not found.");
+        }
+
+        if (payout.FarmerId != loggedInUser.Id)
+        {
+            return Forbid();
+        }
+
+        if (payout.Status == PayoutStatus.Completed)
+        {
+            return BadRequest("Completed payment cannot be rejected.");
+        }
+
+        if (payout.Status == PayoutStatus.Rejected)
+        {
+            return Ok(new { message = "Payment already rejected.", status = payout.Status.ToString() });
+        }
+
+        payout.Status = PayoutStatus.Rejected;
+        payout.ConfirmedAt = DateTime.UtcNow;
+        await _dbContext.SaveChangesAsync();
+
+        return Ok(new
+        {
+            message = "Payment rejected successfully.",
             payoutId = payout.Id,
             status = payout.Status.ToString(),
             payout.ConfirmedAt

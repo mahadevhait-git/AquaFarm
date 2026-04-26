@@ -2,7 +2,7 @@
   <button type="button" (click)="goBack()" style="margin-bottom: 12px;">Back</button>
   <h1 class="page-title">Farmer Transaction Details</h1>
 
-  <div class="card" style="margin-bottom: 20px;" *ngIf="userRole !== 'Farmer'">
+  <div class="card" style="margin-bottom: 20px;">
     <p style="margin: 0 0 8px 0;"><strong>Pond:</strong> {{ pondName || '-' }}</p>
     <p style="margin: 0 0 8px 0;"><strong>Farmer:</strong> {{ farmerName }}</p>
     <div style="display: flex; align-items: center; gap: 10px; flex-wrap: wrap;">
@@ -20,10 +20,7 @@
     </div>
   </div>
 
-  <div class="card" style="margin-bottom: 20px;" *ngIf="userRole === 'Farmer'">
-    <p style="margin: 0;"><strong>My Payment Status for Pond:</strong> {{ pondName || '-' }}</p>
-  </div>
-
+  <div class="success" *ngIf="successMessage">{{ successMessage }}</div>
   <div class="error" *ngIf="errorMessage">{{ errorMessage }}</div>
   <p *ngIf="loading">{{ 'common.loading' | i18n }}</p>
 
@@ -31,70 +28,53 @@
     <table class="table" *ngIf="rows.length > 0">
       <thead>
         <tr>
-          <th *ngIf="userRole !== 'Farmer'">Select</th>
+          <th *ngIf="isPayoutEditor">Select</th>
           <th>Date</th>
-          <th>Payment Date</th>
-          <th>Principal</th>
-          <th>Interest</th>
+          <th>Amount Contributed</th>
+          <th>Interest to Date</th>
           <th>Total</th>
-          <th *ngIf="userRole === 'Farmer'">Manager</th>
-          <th>Status</th>
-          <th *ngIf="userRole === 'Farmer'">Action</th>
+          <th *ngIf="isPayoutEditor">Status</th>
+          <th *ngIf="isPayoutEditor">Paid At</th>
+          <th *ngIf="isPayoutEditor">Confirmed At</th>
         </tr>
       </thead>
       <tbody>
         <tr *ngFor="let row of rows">
-          <td *ngIf="userRole !== 'Farmer'">
+          <td *ngIf="isPayoutEditor">
             <input
-              *ngIf="row.canSelect; else paidStatus"
               type="checkbox"
-              [(ngModel)]="row.selected"
-              (change)="onSelectionChange()"
-            />
-            <ng-template #paidStatus>
-              <span>{{ row.status }}</span>
-            </ng-template>
+              [checked]="!!row.selected"
+              [disabled]="!row.canSelect"
+              (change)="toggleRowSelection(row)">
           </td>
           <td>{{ row.contributionDate | date:'mediumDate' }}</td>
-          <td>{{ row.paymentDate ? (row.paymentDate | date:'mediumDate') : '-' }}</td>
           <td>{{ row.principalAmount | number:'1.2-2' }}</td>
           <td>{{ row.interestToDate | number:'1.2-2' }}</td>
           <td>{{ row.totalAmount | number:'1.2-2' }}</td>
-          <td *ngIf="userRole === 'Farmer'">{{ row.managerName || '-' }}</td>
-          <td>{{ row.status }}</td>
-          <td *ngIf="userRole === 'Farmer'">
-            <button
-              type="button"
-              *ngIf="row.status !== 'Completed'"
-              (click)="confirmPayout(row)"
-              [disabled]="confirmingPayoutId === row.payoutId"
-            >
-              {{ confirmingPayoutId === row.payoutId ? 'Confirming...' : 'Confirm' }}
-            </button>
+          <td *ngIf="isPayoutEditor">
+            <span [class]="getStatusClass(row.status || (row.canSelect ? 'Not Paid' : ''))">
+              {{ row.status || (row.canSelect ? 'Not Paid' : '-') }}
+            </span>
           </td>
+          <td *ngIf="isPayoutEditor">{{ row.paidAt ? (row.paidAt | date:'medium') : '-' }}</td>
+          <td *ngIf="isPayoutEditor">{{ row.confirmedAt ? (row.confirmedAt | date:'medium') : '-' }}</td>
         </tr>
       </tbody>
     </table>
 
+    <div *ngIf="isPayoutEditor && rows.length > 0" style="margin-top: 10px; display: flex; align-items: center; gap: 12px; flex-wrap: wrap;">
+      <span><strong>Selected:</strong> {{ selectedCount }}</span>
+      <button type="button" (click)="createPayouts()" [disabled]="submittingPayouts || selectedCount === 0">
+        {{ submittingPayouts ? 'Submitting...' : 'Mark Selected as Paid' }}
+      </button>
+    </div>
+
     <p *ngIf="rows.length === 0">No transactions found for this farmer.</p>
 
     <div class="card" style="margin-top: 20px;">
-      <div *ngIf="userRole !== 'Farmer'" class="form-group">
-        <label><strong>Selected Amount (Principal + Interest)</strong></label>
-        <input type="text" [value]="totalAmount | number:'1.2-2'" readonly>
-      </div>
       <p style="margin: 0 0 8px 0;"><strong>Principal Amount:</strong> {{ principalAmount | number:'1.2-2' }}</p>
       <p style="margin: 0 0 8px 0;"><strong>Total Interest:</strong> {{ totalInterest | number:'1.2-2' }}</p>
       <p style="margin: 0;"><strong>Total Amount (Principal + Interest):</strong> {{ totalAmount | number:'1.2-2' }}</p>
-      <button
-        type="button"
-        *ngIf="userRole !== 'Farmer'"
-        (click)="submitPayout()"
-        [disabled]="submitting"
-        style="margin-top: 12px;"
-      >
-        {{ submitting ? 'Submitting...' : 'Submit' }}
-      </button>
     </div>
   </div>
 </div>

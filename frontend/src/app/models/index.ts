@@ -30,6 +30,7 @@ export interface Pond {
   id: string;
   name: string;
   location?: string;
+  leasedYears?: number | null;
   ownerId: string;
   ownerName?: string;
   groupId?: string;

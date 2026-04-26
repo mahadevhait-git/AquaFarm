@@ -5,6 +5,7 @@ import { HttpErrorResponse } from '@angular/common/http';
 import { firstValueFrom } from 'rxjs';
 import { Expense, Pond } from '../../models';
 import { ApiService } from '../../services/api.service';
+import { AuthService } from '../../services/auth.service';
 import { I18nPipe } from '../../pipes/i18n.pipe';
 
 type ExpenseBillRow = {
@@ -54,10 +55,17 @@ export class ExpensePageComponent {
 
   message = '';
   isErrorMessage = false;
+  isFarmer = false;
+  currentUserId = '';
 
-  constructor(private apiService: ApiService) {}
+  constructor(
+    private apiService: ApiService,
+    private authService: AuthService,
+  ) {}
 
   async ngOnInit(): Promise<void> {
+    this.isFarmer = (this.authService.getRole() ?? '').toLowerCase() === 'farmer';
+    this.currentUserId = this.authService.getUserId() ?? '';
     await this.loadPonds();
   }
 
@@ -68,10 +76,22 @@ export class ExpensePageComponent {
   async loadPonds(): Promise<void> {
     try {
       const data = await firstValueFrom(this.apiService.ponds.list());
-      this.ponds = Array.isArray(data) ? data : [];
+      const allPonds = Array.isArray(data) ? (data as Pond[]) : [];
+      this.ponds = this.isFarmer && this.currentUserId
+        ? allPonds.filter(pond => pond.ownerId === this.currentUserId)
+        : allPonds;
+
       if (!this.selectedPondId && this.ponds.length > 0) {
         this.selectedPondId = this.ponds[0].id;
       }
+
+      if (this.ponds.length === 0) {
+        this.selectedPondId = '';
+        this.expenses = [];
+        this.setMessage(this.isFarmer ? 'No ponds are assigned to your account.' : '', this.isFarmer);
+        return;
+      }
+
       await this.loadExpenses();
     } catch (error) {
       this.setMessage(this.getErrorMessage(error, 'Failed to load ponds.'), true);
@@ -129,6 +149,11 @@ export class ExpensePageComponent {
   }
 
   async saveExpense(): Promise<void> {
+    if (this.isFarmer) {
+      this.setMessage('Farmers can only view and download expense bills.', true);
+      return;
+    }
+
     if (!this.selectedPondId) {
       this.setMessage('Please select a pond for this expense.', true);
       return;
@@ -175,6 +200,11 @@ export class ExpensePageComponent {
   }
 
   async removeExpense(expense: Expense): Promise<void> {
+    if (this.isFarmer) {
+      this.setMessage('Farmers can only view and download expense bills.', true);
+      return;
+    }
+
     const confirmed = window.confirm('Are you sure you want to remove this expense?');
     if (!confirmed) {
       return;

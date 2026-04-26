@@ -32,7 +32,9 @@ export class MyPaymentsPageComponent {
   rows: FarmerPaymentRow[] = [];
   loading = true;
   errorMessage = '';
+  successMessage = '';
   confirmingPayoutId: string | null = null;
+  rejectingPayoutId: string | null = null;
 
   constructor(private apiService: ApiService) {}
 
@@ -45,19 +47,55 @@ export class MyPaymentsPageComponent {
   }
 
   async confirm(row: FarmerPaymentRow): Promise<void> {
-    if (row.status === 'Completed') {
+    if (row.status === 'Completed' || row.status === 'Rejected') {
       return;
     }
 
     this.confirmingPayoutId = row.payoutId;
     try {
       await firstValueFrom(this.apiService.groups.confirmPayout(row.payoutId));
+      this.successMessage = 'Payment confirmed successfully.';
       await this.loadPayments();
     } catch (error) {
       this.errorMessage = this.getErrorMessage(error, 'Failed to confirm payment.');
+      this.successMessage = '';
     } finally {
       this.confirmingPayoutId = null;
     }
+  }
+
+  async reject(row: FarmerPaymentRow): Promise<void> {
+    if (row.status === 'Completed' || row.status === 'Rejected') {
+      return;
+    }
+
+    const shouldReject = window.confirm('Are you sure you want to reject this payment?');
+    if (!shouldReject) {
+      return;
+    }
+
+    this.rejectingPayoutId = row.payoutId;
+    try {
+      await firstValueFrom(this.apiService.groups.rejectPayout(row.payoutId));
+      this.successMessage = 'Payment rejected successfully.';
+      await this.loadPayments();
+    } catch (error) {
+      this.errorMessage = this.getErrorMessage(error, 'Failed to reject payment.');
+      this.successMessage = '';
+    } finally {
+      this.rejectingPayoutId = null;
+    }
+  }
+
+  getStatusClass(status: string): string {
+    const normalized = (status || '').toLowerCase();
+    if (normalized === 'completed') {
+      return 'status-completed';
+    }
+    if (normalized === 'rejected') {
+      return 'status-rejected';
+    }
+    return 'status-pending';
   }
 
   private async loadPondsAndPayments(): Promise<void> {
@@ -67,9 +105,11 @@ export class MyPaymentsPageComponent {
       this.ponds = Array.isArray(pondsResponse) ? pondsResponse : [];
       await this.loadPayments();
       this.errorMessage = '';
+      this.successMessage = '';
     } catch (error) {
       this.errorMessage = this.getErrorMessage(error, 'Failed to load my payments.');
       this.rows = [];
+      this.successMessage = '';
     } finally {
       this.loading = false;
     }

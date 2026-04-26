@@ -17,6 +17,10 @@
         <label for="location">{{ 'common.location' | i18n }}</label>
         <input id="location" type="text" [(ngModel)]="formData.location" name="location">
       </div>
+      <div class="form-group">
+        <label for="leasedYears">Leased Years (Optional)</label>
+        <input id="leasedYears" type="number" min="0" step="1" [(ngModel)]="formData.leasedYears" name="leasedYears">
+      </div>
       <button type="submit">{{ isEditMode ? 'Update Pond' : ('pond.create' | i18n) }}</button>
     </form>
   </div>
@@ -31,6 +35,7 @@
         <tr>
           <th>{{ 'pond.name' | i18n }}</th>
           <th>{{ 'common.location' | i18n }}</th>
+          <th>Leased Years</th>
           <th>{{ 'common.created' | i18n }}</th>
           <th *ngIf="!isReadOnly">Actions</th>
         </tr>
@@ -39,6 +44,7 @@
         <tr *ngFor="let pond of ponds">
           <td>{{ pond.name }}</td>
           <td>{{ pond.location || ('common.na' | i18n) }}</td>
+          <td>{{ pond.leasedYears ?? ('common.na' | i18n) }}</td>
           <td>{{ pond.createdAt | date }}</td>
           <td *ngIf="!isReadOnly" style="display: flex; gap: 8px;">
             <button type="button" (click)="startEdit(pond)">Edit</button>

@@ -141,6 +141,9 @@ export class ApiService {
 
     confirmPayout: (payoutId: string): Observable<any> =>
       this.http.post(`${this.apiBaseUrl}/groups/payouts/${payoutId}/confirm`, {}, { headers: this.authHeaders() }),
+
+    rejectPayout: (payoutId: string): Observable<any> =>
+      this.http.post(`${this.apiBaseUrl}/groups/payouts/${payoutId}/reject`, {}, { headers: this.authHeaders() }),
   };
 
   loans = {
@@ -220,5 +223,16 @@ export class ApiService {
         headers: this.authHeaders(),
         responseType: 'blob',
       }),
+  };
+
+  adminUsers = {
+    managers: (): Observable<any> =>
+      this.http.get(`${this.apiBaseUrl}/admin/users/managers`, { headers: this.authHeaders() }),
+
+    farmers: (): Observable<any> =>
+      this.http.get(`${this.apiBaseUrl}/admin/users/farmers`, { headers: this.authHeaders() }),
+
+    associatedPonds: (userId: string): Observable<any> =>
+      this.http.get(`${this.apiBaseUrl}/admin/users/${userId}/ponds`, { headers: this.authHeaders() }),
   };
 }

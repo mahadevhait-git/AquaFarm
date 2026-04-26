@@ -1,7 +1,7 @@
 <div>
   <div style="display: flex; align-items: center; justify-content: space-between; gap: 12px; margin-bottom: 12px;">
     <h1 class="page-title" style="margin: 0;">{{ 'expense.title' | i18n }}</h1>
-    <button type="button" (click)="showEntryForm = !showEntryForm">
+    <button *ngIf="!isFarmer" type="button" (click)="showEntryForm = !showEntryForm" [disabled]="ponds.length === 0">
       {{ showEntryForm ? ('common.cancel' | i18n) : ('expense.new' | i18n) }}
     </button>
   </div>
@@ -28,7 +28,7 @@
     </div>
   </div>
 
-  <div class="card" style="margin-top: 20px;" *ngIf="showEntryForm">
+  <div class="card" style="margin-top: 20px;" *ngIf="showEntryForm && !isFarmer">
     <h3 style="margin-top: 0;">{{ 'expense.new' | i18n }}</h3>
 
     <div class="form-group">
@@ -104,6 +104,7 @@
               <button
                 type="button"
                 class="danger"
+                *ngIf="!isFarmer"
                 (click)="removeExpense(expense)"
                 [disabled]="deletingExpenseId === expense.id"
               >

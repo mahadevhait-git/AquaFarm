@@ -48,6 +48,7 @@ public class PondsController : ControllerBase
                 p.Id,
                 p.Name,
                 p.Location,
+                p.LeasedYears,
                 p.OwnerId,
                 OwnerName = p.Owner != null ? (p.Owner.FirstName + " " + p.Owner.LastName) : string.Empty,
                 p.GroupId,
@@ -85,6 +86,7 @@ public class PondsController : ControllerBase
                 p.Id,
                 p.Name,
                 p.Location,
+                p.LeasedYears,
                 p.OwnerId,
                 OwnerName = p.Owner != null ? (p.Owner.FirstName + " " + p.Owner.LastName) : string.Empty,
                 p.GroupId,
@@ -126,11 +128,17 @@ public class PondsController : ControllerBase
             }
         }
 
+        if (request.LeasedYears.HasValue && request.LeasedYears.Value < 0)
+        {
+            return BadRequest("Leased years cannot be negative.");
+        }
+
         var pond = new Pond
         {
             Id = Guid.NewGuid(),
             Name = request.Name.Trim(),
             Location = request.Location?.Trim(),
+            LeasedYears = request.LeasedYears,
             OwnerId = loggedInUser.Id,
             GroupId = request.GroupId,
             CreatedAt = DateTime.UtcNow
@@ -143,6 +151,7 @@ public class PondsController : ControllerBase
             pond.Id,
             pond.Name,
             pond.Location,
+            pond.LeasedYears,
             pond.OwnerId,
             OwnerName = loggedInUser.FirstName + " " + loggedInUser.LastName,
             pond.GroupId,
@@ -188,8 +197,14 @@ public class PondsController : ControllerBase
             }
         }
 
+        if (update.LeasedYears.HasValue && update.LeasedYears.Value < 0)
+        {
+            return BadRequest("Leased years cannot be negative.");
+        }
+
         existing.Name = update.Name.Trim();
         existing.Location = update.Location?.Trim();
+        existing.LeasedYears = update.LeasedYears;
         existing.GroupId = update.GroupId;
         await _dbContext.SaveChangesAsync();
 

@@ -1,5 +1,6 @@
 import { Routes } from '@angular/router';
 import { authGuard } from './guards/auth.guard';
+import { adminGuard } from './guards/admin.guard';
 import { LoginPageComponent } from './pages/login-page/login-page.component';
 import { DashboardPageComponent } from './pages/dashboard-page/dashboard-page.component';
 import { PondPageComponent } from './pages/pond-page/pond-page.component';
@@ -11,6 +12,8 @@ import { RegisterPageComponent } from './pages/register-page/register-page.compo
 import { ForgotPasswordPageComponent } from './pages/forgot-password-page/forgot-password-page.component';
 import { FarmerTransactionDetailsPageComponent } from './pages/farmer-transaction-details-page/farmer-transaction-details-page.component';
 import { MyPaymentsPageComponent } from './pages/my-payments-page/my-payments-page.component';
+import { ManagerDirectoryPageComponent } from './pages/manager-directory-page/manager-directory-page.component';
+import { FarmerDirectoryPageComponent } from './pages/farmer-directory-page/farmer-directory-page.component';
 
 export const routes: Routes = [
   { path: 'login', component: LoginPageComponent },
@@ -24,6 +27,8 @@ export const routes: Routes = [
   { path: 'my-payments', component: MyPaymentsPageComponent, canActivate: [authGuard] },
   { path: 'expenses', component: ExpensePageComponent, canActivate: [authGuard] },
   { path: 'groups', component: GroupPageComponent, canActivate: [authGuard] },
+  { path: 'admin/managers', component: ManagerDirectoryPageComponent, canActivate: [authGuard, adminGuard] },
+  { path: 'admin/farmers', component: FarmerDirectoryPageComponent, canActivate: [authGuard, adminGuard] },
   { path: '', redirectTo: '/login', pathMatch: 'full' },
   { path: '**', redirectTo: '/login' },
 ];

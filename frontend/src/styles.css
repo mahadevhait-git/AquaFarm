@@ -253,6 +253,19 @@ button.danger:hover {
   background: #c3403c;
 }
 
+button.link-button {
+  background: transparent;
+  border: none;
+  color: inherit;
+  padding: 0;
+  font-weight: 700;
+}
+
+button.link-button:hover {
+  background: transparent;
+  text-decoration: underline;
+}
+
 .table {
   width: 100%;
   border-collapse: collapse;
@@ -305,6 +318,21 @@ code {
   padding: 2px 5px;
   border-radius: 3px;
   font-family: Consolas, "Courier New", monospace;
+}
+
+.status-pending {
+  color: #9a6700;
+  font-weight: 700;
+}
+
+.status-completed {
+  color: #1f7a4f;
+  font-weight: 700;
+}
+
+.status-rejected {
+  color: #b42318;
+  font-weight: 700;
 }
 
 @media (max-width: 900px) {

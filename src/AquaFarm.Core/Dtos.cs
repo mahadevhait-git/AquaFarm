@@ -13,9 +13,9 @@ public record ForgotPasswordOtpRequest(string Email);
 public record ForgotPasswordResetRequest(string Email, string Otp, string NewPassword);
 public record AuthResponse(string Token, string Role);
 
-public record PondCreateRequest(string Name, string? Location, Guid? GroupId);
-public record PondUpdateRequest(string Name, string? Location, Guid? GroupId);
-public record PondDto(Guid Id, string Name, string? Location, Guid OwnerId, Guid? GroupId, DateTime CreatedAt);
+public record PondCreateRequest(string Name, string? Location, int? LeasedYears, Guid? GroupId);
+public record PondUpdateRequest(string Name, string? Location, int? LeasedYears, Guid? GroupId);
+public record PondDto(Guid Id, string Name, string? Location, int? LeasedYears, Guid OwnerId, Guid? GroupId, DateTime CreatedAt);
 
 public record TransactionCreateRequest(TransactionType Type, string Category, decimal Amount, DateTime Date, Guid CreatedById, Guid? PondId = null, Guid? GroupId = null, string? Notes = null);
 public record TransactionDto(Guid Id, TransactionType Type, string Category, decimal Amount, DateTime Date, Guid? PondId, Guid? GroupId, Guid CreatedById, string? Notes);
@@ -57,6 +57,25 @@ public record RecordGroupContributionRequest(Guid UserId, decimal Amount);
 public record UpdateCapitalTransactionAmountRequest(decimal Amount);
 public record CreateContributionPayoutRequest(Guid PondId, Guid FarmerId, decimal AnnualInterestRate, List<Guid> CapitalTransactionIds);
 public record ConfirmContributionPayoutRequest(Guid PayoutId);
+public record UserDirectoryItemDto(
+    Guid Id,
+    string UserName,
+    string FirstName,
+    string LastName,
+    string Email,
+    string PhoneNumber,
+    string Role,
+    DateTime CreatedAt);
+public record UserAssociatedPondDto(
+    Guid Id,
+    string Name,
+    string? Location,
+    Guid OwnerId,
+    string OwnerName,
+    Guid? GroupId,
+    string? GroupName,
+    string AssociationType,
+    DateTime CreatedAt);
 
 public record LoanCreateRequest(Guid BorrowerId, decimal PrincipalAmount, decimal InterestRate, InterestType InterestType, int TermMonths, string? Notes = null);
 public record LoanRepaymentRequest(decimal Amount, DateTime Date, string? Notes = null);

@@ -397,7 +397,7 @@ public class ExpensesController : ControllerBase
             return NotFound("Expense not found.");
         }
 
-        if (!CanAccessExpense(loggedInUser, expense))
+        if (!await CanAccessExpense(loggedInUser, expense))
         {
             return Forbid();
         }
@@ -442,7 +442,7 @@ public class ExpensesController : ControllerBase
             return NotFound("Expense not found.");
         }
 
-        if (!CanAccessExpense(loggedInUser, expense))
+        if (!await CanAccessExpense(loggedInUser, expense))
         {
             return Forbid();
         }
@@ -486,7 +486,7 @@ public class ExpensesController : ControllerBase
             return NotFound("Expense not found.");
         }
 
-        if (!CanAccessExpense(loggedInUser, expense))
+        if (!await CanAccessExpense(loggedInUser, expense))
         {
             return Forbid();
         }
@@ -542,7 +542,7 @@ public class ExpensesController : ControllerBase
             return NotFound("Expense not found.");
         }
 
-        if (!CanAccessExpense(loggedInUser, expense))
+        if (!await CanAccessExpense(loggedInUser, expense))
         {
             return Forbid();
         }
@@ -608,7 +608,7 @@ public class ExpensesController : ControllerBase
             return NotFound("Expense bill not found.");
         }
 
-        if (!CanAccessExpense(loggedInUser, bill.Expense))
+        if (!await CanAccessExpense(loggedInUser, bill.Expense))
         {
             return Forbid();
         }
@@ -664,7 +664,7 @@ public class ExpensesController : ControllerBase
         return false;
     }
 
-    private static bool CanAccessExpense(AppUser user, Expense expense)
+    private async Task<bool> CanAccessExpense(AppUser user, Expense expense)
     {
         if (user.Role == UserRole.Admin)
         {
@@ -679,6 +679,16 @@ public class ExpensesController : ControllerBase
         if (expense.Pond?.OwnerId == user.Id)
         {
             return true;
+        }
+
+        if (user.Role == UserRole.Farmer && expense.Pond?.GroupId is Guid pondGroupId)
+        {
+            var isGroupMember = await _dbContext.GroupMemberships
+                .AnyAsync(m => m.UserId == user.Id && m.GroupId == pondGroupId);
+            if (isGroupMember)
+            {
+                return true;
+            }
         }
 
         return false;

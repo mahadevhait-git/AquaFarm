@@ -19,7 +19,7 @@ export class PondPageComponent implements OnInit {
   showForm = false;
   isEditMode = false;
   editingPondId = '';
-  formData = { name: '', location: '' };
+  formData: { name: string; location: string; leasedYears: number | null } = { name: '', location: '', leasedYears: null };
   loading = true;
   errorMessage = '';
   readonly isReadOnly: boolean;
@@ -84,6 +84,7 @@ export class PondPageComponent implements OnInit {
     this.formData = {
       name: pond.name ?? '',
       location: pond.location ?? '',
+      leasedYears: pond.leasedYears ?? null,
     };
     this.errorMessage = '';
   }
@@ -113,7 +114,7 @@ export class PondPageComponent implements OnInit {
     this.showForm = false;
     this.isEditMode = false;
     this.editingPondId = '';
-    this.formData = { name: '', location: '' };
+    this.formData = { name: '', location: '', leasedYears: null };
   }
 
   private getErrorMessage(error: unknown, fallback: string): string {

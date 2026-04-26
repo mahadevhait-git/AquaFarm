@@ -32,5 +32,6 @@ public enum MembershipRole
 public enum PayoutStatus
 {
     Pending,
-    Completed
+    Completed,
+    Rejected
 }

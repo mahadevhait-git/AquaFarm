@@ -259,6 +259,12 @@ BEGIN
 END;");
 
         context.Database.ExecuteSqlRaw(@"
+IF COL_LENGTH('Ponds', 'LeasedYears') IS NULL
+BEGIN
+    ALTER TABLE [Ponds] ADD [LeasedYears] int NULL;
+END;");
+
+        context.Database.ExecuteSqlRaw(@"
 IF OBJECT_ID(N'[CapitalTransactions]', N'U') IS NULL
 BEGIN
     CREATE TABLE [CapitalTransactions](

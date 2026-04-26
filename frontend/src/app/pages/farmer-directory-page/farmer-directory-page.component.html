@@ -1,0 +1,68 @@
+<div>
+  <h1 class="page-title">Farmers</h1>
+
+  <div class="card" style="margin-bottom: 16px;">
+    <label for="farmer-search">Search</label>
+    <input
+      id="farmer-search"
+      type="text"
+      [(ngModel)]="searchText"
+      placeholder="Search by name, username, phone, or email">
+  </div>
+
+  <div class="error" *ngIf="errorMessage">{{ errorMessage }}</div>
+  <p *ngIf="loading">Loading...</p>
+
+  <table class="table" *ngIf="!loading && filteredAndSortedRows.length > 0">
+    <thead>
+      <tr>
+        <th><button type="button" class="link-button" (click)="toggleSort('name')">Name {{ getSortIndicator('name') }}</button></th>
+        <th><button type="button" class="link-button" (click)="toggleSort('userName')">Username {{ getSortIndicator('userName') }}</button></th>
+        <th><button type="button" class="link-button" (click)="toggleSort('phoneNumber')">Phone {{ getSortIndicator('phoneNumber') }}</button></th>
+        <th><button type="button" class="link-button" (click)="toggleSort('email')">Email {{ getSortIndicator('email') }}</button></th>
+        <th><button type="button" class="link-button" (click)="toggleSort('createdAt')">Registered On {{ getSortIndicator('createdAt') }}</button></th>
+      </tr>
+    </thead>
+    <tbody>
+      <tr *ngFor="let row of filteredAndSortedRows">
+        <td><button type="button" class="link-button" (click)="toggleFarmerPonds(row)">{{ row.firstName }} {{ row.lastName }}</button></td>
+        <td>{{ row.userName }}</td>
+        <td>{{ row.phoneNumber }}</td>
+        <td>{{ row.email || '-' }}</td>
+        <td>{{ row.createdAt | date:'mediumDate' }}</td>
+      </tr>
+    </tbody>
+  </table>
+
+  <p *ngIf="!loading && filteredAndSortedRows.length === 0">No farmers found.</p>
+
+  <div class="card" *ngIf="selectedFarmer" style="margin-top: 16px;">
+    <h3 style="margin-top: 0;">Ponds Associated With {{ selectedFarmer.firstName }} {{ selectedFarmer.lastName }}</h3>
+    <p *ngIf="loadingAssociatedPonds">Loading...</p>
+    <div class="error" *ngIf="!loadingAssociatedPonds && associatedPondsError">{{ associatedPondsError }}</div>
+    <p *ngIf="!loadingAssociatedPonds && !associatedPondsError">Total ponds: {{ associatedPonds.length }}</p>
+
+    <table class="table" *ngIf="!loadingAssociatedPonds && !associatedPondsError && associatedPonds.length > 0">
+      <thead>
+        <tr>
+          <th>Pond</th>
+          <th>Location</th>
+          <th>Association</th>
+          <th>Owner</th>
+          <th>Group</th>
+        </tr>
+      </thead>
+      <tbody>
+        <tr *ngFor="let pond of associatedPonds">
+          <td>{{ pond.name }}</td>
+          <td>{{ pond.location || '-' }}</td>
+          <td>{{ pond.associationType }}</td>
+          <td>{{ pond.ownerName || '-' }}</td>
+          <td>{{ pond.groupName || '-' }}</td>
+        </tr>
+      </tbody>
+    </table>
+
+    <p *ngIf="!loadingAssociatedPonds && !associatedPondsError && associatedPonds.length === 0">No associated ponds found.</p>
+  </div>
+</div>
