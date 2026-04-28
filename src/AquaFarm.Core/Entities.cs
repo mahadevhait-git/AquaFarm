@@ -13,6 +13,7 @@ public class AppUser
     public string Email { get; set; } = default!;
     public string PhoneNumber { get; set; } = default!;
     public string PasswordHash { get; set; } = default!;
+    public bool IsActive { get; set; } = true;
     public UserRole Role { get; set; } = UserRole.Farmer;
     public DateTime CreatedAt { get; set; } = DateTime.UtcNow;
 
@@ -211,4 +212,23 @@ public class AuditLog
     public Guid PerformedById { get; set; }
     public DateTime Timestamp { get; set; } = DateTime.UtcNow;
     public string? Details { get; set; }
+}
+
+public class InvestmentExpenseAudit
+{
+    [Key]
+    public Guid Id { get; set; }
+    public string RecordType { get; set; } = default!;
+    public string ActionType { get; set; } = default!;
+    public Guid RecordId { get; set; }
+    public Guid? GroupId { get; set; }
+    public Guid? PondId { get; set; }
+    public Guid? FarmerId { get; set; }
+    public decimal? OldAmount { get; set; }
+    public decimal? NewAmount { get; set; }
+    public string? OldValuesJson { get; set; }
+    public string? NewValuesJson { get; set; }
+    public Guid PerformedById { get; set; }
+    public string PerformedByUserName { get; set; } = default!;
+    public DateTime CreatedAt { get; set; } = DateTime.UtcNow;
 }

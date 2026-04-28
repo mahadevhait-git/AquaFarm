@@ -65,6 +65,7 @@ public record UserDirectoryItemDto(
     string Email,
     string PhoneNumber,
     string Role,
+    bool IsActive,
     DateTime CreatedAt);
 public record UserAssociatedPondDto(
     Guid Id,
@@ -75,6 +76,21 @@ public record UserAssociatedPondDto(
     Guid? GroupId,
     string? GroupName,
     string AssociationType,
+    DateTime CreatedAt);
+public record InvestmentExpenseAuditDto(
+    Guid Id,
+    string RecordType,
+    string ActionType,
+    Guid RecordId,
+    Guid? GroupId,
+    Guid? PondId,
+    Guid? FarmerId,
+    decimal? OldAmount,
+    decimal? NewAmount,
+    string? OldValuesJson,
+    string? NewValuesJson,
+    Guid PerformedById,
+    string PerformedByUserName,
     DateTime CreatedAt);
 
 public record LoanCreateRequest(Guid BorrowerId, decimal PrincipalAmount, decimal InterestRate, InterestType InterestType, int TermMonths, string? Notes = null);

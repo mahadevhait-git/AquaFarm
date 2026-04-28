@@ -11,6 +11,7 @@
       <a routerLink="/groups" routerLinkActive="active">{{ 'nav.groups' | i18n }}</a>
       <a *ngIf="isAdmin" routerLink="/admin/managers" routerLinkActive="active">Managers</a>
       <a *ngIf="isAdmin" routerLink="/admin/farmers" routerLinkActive="active">Farmers</a>
+      <a *ngIf="isAdmin" routerLink="/admin/audit" routerLinkActive="active">Audit Logs</a>
     </nav>
     <div class="sidebar-user">
       <div class="sidebar-user-label">Logged in as</div>

@@ -234,5 +234,13 @@ export class ApiService {
 
     associatedPonds: (userId: string): Observable<any> =>
       this.http.get(`${this.apiBaseUrl}/admin/users/${userId}/ponds`, { headers: this.authHeaders() }),
+
+    updateStatus: (userId: string, isActive: boolean): Observable<any> =>
+      this.http.put(`${this.apiBaseUrl}/admin/users/${userId}/status`, { isActive }, { headers: this.authHeaders() }),
+  };
+
+  adminAudit = {
+    investmentExpenseLogs: (): Observable<any> =>
+      this.http.get(`${this.apiBaseUrl}/admin/audit/investments-expenses`, { headers: this.authHeaders() }),
   };
 }

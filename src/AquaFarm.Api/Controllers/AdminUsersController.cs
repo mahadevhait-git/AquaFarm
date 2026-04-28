@@ -45,6 +45,31 @@ public class AdminUsersController : ControllerBase
         return Ok(users);
     }
 
+    [HttpPut("{userId:guid}/status")]
+    public async Task<IActionResult> UpdateUserStatus(Guid userId, [FromBody] UpdateUserStatusRequest request)
+    {
+        if (!IsAdmin())
+        {
+            return Forbid();
+        }
+
+        var user = await _dbContext.Users.FirstOrDefaultAsync(u => u.Id == userId);
+        if (user is null)
+        {
+            return NotFound("User not found.");
+        }
+
+        if (user.Role != UserRole.GroupManager && user.Role != UserRole.Farmer)
+        {
+            return BadRequest("Only manager and farmer status can be updated.");
+        }
+
+        user.IsActive = request.IsActive;
+        await _dbContext.SaveChangesAsync();
+
+        return Ok(new { message = $"User marked as {(user.IsActive ? "active" : "inactive")}.", userId = user.Id, user.IsActive });
+    }
+
     [HttpGet("{userId:guid}/ponds")]
     public async Task<IActionResult> GetAssociatedPonds(Guid userId)
     {
@@ -130,7 +155,10 @@ public class AdminUsersController : ControllerBase
                 u.Email,
                 u.PhoneNumber,
                 u.Role.ToString(),
+                u.IsActive,
                 u.CreatedAt))
             .ToListAsync();
     }
+
+    public record UpdateUserStatusRequest(bool IsActive);
 }

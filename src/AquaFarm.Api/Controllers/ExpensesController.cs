@@ -6,6 +6,7 @@ using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
 using System.Security.Claims;
+using System.Text.Json;
 
 namespace AquaFarm.Api.Controllers;
 
@@ -460,6 +461,34 @@ public class ExpensesController : ControllerBase
         {
             DeleteFileIfExists(expense.BillStoragePath);
         }
+
+        _dbContext.InvestmentExpenseAudits.Add(new InvestmentExpenseAudit
+        {
+            Id = Guid.NewGuid(),
+            RecordType = "Expense",
+            ActionType = "Delete",
+            RecordId = expense.Id,
+            GroupId = expense.Pond?.GroupId,
+            PondId = expense.PondId,
+            FarmerId = null,
+            OldAmount = expense.Amount,
+            NewAmount = null,
+            OldValuesJson = JsonSerializer.Serialize(new
+            {
+                expense.Id,
+                expense.PondId,
+                GroupId = expense.Pond?.GroupId,
+                expense.Amount,
+                expense.Purpose,
+                expense.ExpenseDate,
+                expense.CreatedById,
+                expense.CreatedAt
+            }),
+            NewValuesJson = null,
+            PerformedById = loggedInUser.Id,
+            PerformedByUserName = loggedInUser.UserName,
+            CreatedAt = DateTime.UtcNow
+        });
 
         _dbContext.ExpenseBills.RemoveRange(expenseBills);
         _dbContext.Expenses.Remove(expense);

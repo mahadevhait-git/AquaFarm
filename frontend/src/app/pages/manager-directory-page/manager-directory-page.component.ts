@@ -13,6 +13,7 @@ type DirectoryUser = {
   email: string;
   phoneNumber: string;
   role: string;
+  isActive: boolean;
   createdAt: string;
 };
 
@@ -47,6 +48,7 @@ export class ManagerDirectoryPageComponent implements OnInit {
   associatedPonds: AssociatedPond[] = [];
   loadingAssociatedPonds = false;
   associatedPondsError = '';
+  updatingStatusUserId: string | null = null;
 
   constructor(private apiService: ApiService) {}
 
@@ -131,6 +133,23 @@ export class ManagerDirectoryPageComponent implements OnInit {
       this.associatedPondsError = this.getErrorMessage(error, 'Failed to load associated ponds.');
     } finally {
       this.loadingAssociatedPonds = false;
+    }
+  }
+
+  async setUserStatus(row: DirectoryUser, isActive: boolean): Promise<void> {
+    if (this.updatingStatusUserId) {
+      return;
+    }
+
+    this.updatingStatusUserId = row.id;
+    this.errorMessage = '';
+    try {
+      await firstValueFrom(this.apiService.adminUsers.updateStatus(row.id, isActive));
+      row.isActive = isActive;
+    } catch (error) {
+      this.errorMessage = this.getErrorMessage(error, 'Failed to update status.');
+    } finally {
+      this.updatingStatusUserId = null;
     }
   }
 

@@ -23,6 +23,7 @@ public class AquaFarmDbContext : DbContext
     public DbSet<ContributionPayout> ContributionPayouts => Set<ContributionPayout>();
     public DbSet<LoanRepayment> LoanRepayments => Set<LoanRepayment>();
     public DbSet<AuditLog> AuditLogs => Set<AuditLog>();
+    public DbSet<InvestmentExpenseAudit> InvestmentExpenseAudits => Set<InvestmentExpenseAudit>();
 
     protected override void OnModelCreating(ModelBuilder modelBuilder)
     {
@@ -72,6 +73,8 @@ public class AquaFarmDbContext : DbContext
         modelBuilder.Entity<ContributionPayout>().HasIndex(p => p.CapitalTransactionId).IsUnique();
         modelBuilder.Entity<ContributionPayout>().HasIndex(p => new { p.PondId, p.FarmerId, p.Status });
         modelBuilder.Entity<ContributionPayout>().HasIndex(p => new { p.FarmerId, p.CreatedAt });
+        modelBuilder.Entity<InvestmentExpenseAudit>().HasIndex(a => a.CreatedAt);
+        modelBuilder.Entity<InvestmentExpenseAudit>().HasIndex(a => new { a.RecordType, a.ActionType, a.CreatedAt });
 
         base.OnModelCreating(modelBuilder);
     }

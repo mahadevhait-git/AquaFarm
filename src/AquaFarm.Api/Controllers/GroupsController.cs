@@ -7,6 +7,7 @@ using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
 using System.Security.Claims;
 using System.Net.Mail;
+using System.Text.Json;
 
 namespace AquaFarm.Api.Controllers;
 
@@ -610,6 +611,33 @@ public class GroupsController : ControllerBase
             .ToListAsync();
         if (contributionTransactions.Count > 0)
         {
+            foreach (var tx in contributionTransactions)
+            {
+                _dbContext.InvestmentExpenseAudits.Add(new InvestmentExpenseAudit
+                {
+                    Id = Guid.NewGuid(),
+                    RecordType = "Investment",
+                    ActionType = "Delete",
+                    RecordId = tx.Id,
+                    GroupId = tx.GroupId,
+                    FarmerId = tx.FarmerId,
+                    OldAmount = tx.Amount,
+                    NewAmount = null,
+                    OldValuesJson = JsonSerializer.Serialize(new
+                    {
+                        tx.Id,
+                        tx.GroupId,
+                        tx.FarmerId,
+                        tx.ContributionDate,
+                        tx.Amount,
+                        tx.CreatedAt
+                    }),
+                    NewValuesJson = null,
+                    PerformedById = loggedInUser.Id,
+                    PerformedByUserName = loggedInUser.UserName,
+                    CreatedAt = DateTime.UtcNow
+                });
+            }
             _dbContext.CapitalTransactions.RemoveRange(contributionTransactions);
         }
 
@@ -694,7 +722,44 @@ public class GroupsController : ControllerBase
             return NotFound("Capital transaction not found.");
         }
 
+        var oldAmount = transaction.Amount;
+        var oldValues = JsonSerializer.Serialize(new
+        {
+            transaction.Id,
+            transaction.GroupId,
+            transaction.FarmerId,
+            transaction.ContributionDate,
+            OldAmount = transaction.Amount,
+            transaction.CreatedAt
+        });
+
         transaction.Amount = request.Amount;
+
+        _dbContext.InvestmentExpenseAudits.Add(new InvestmentExpenseAudit
+        {
+            Id = Guid.NewGuid(),
+            RecordType = "Investment",
+            ActionType = "Modify",
+            RecordId = transaction.Id,
+            GroupId = transaction.GroupId,
+            FarmerId = transaction.FarmerId,
+            OldAmount = oldAmount,
+            NewAmount = transaction.Amount,
+            OldValuesJson = oldValues,
+            NewValuesJson = JsonSerializer.Serialize(new
+            {
+                transaction.Id,
+                transaction.GroupId,
+                transaction.FarmerId,
+                transaction.ContributionDate,
+                NewAmount = transaction.Amount,
+                transaction.CreatedAt
+            }),
+            PerformedById = loggedInUser.Id,
+            PerformedByUserName = loggedInUser.UserName,
+            CreatedAt = DateTime.UtcNow
+        });
+
         await _dbContext.SaveChangesAsync();
 
         await RecalculateLoanTotalFromTransactions(groupId, transaction.FarmerId);

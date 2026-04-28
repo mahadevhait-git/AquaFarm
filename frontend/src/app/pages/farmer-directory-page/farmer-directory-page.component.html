@@ -20,6 +20,8 @@
         <th><button type="button" class="link-button" (click)="toggleSort('userName')">Username {{ getSortIndicator('userName') }}</button></th>
         <th><button type="button" class="link-button" (click)="toggleSort('phoneNumber')">Phone {{ getSortIndicator('phoneNumber') }}</button></th>
         <th><button type="button" class="link-button" (click)="toggleSort('email')">Email {{ getSortIndicator('email') }}</button></th>
+        <th>Status</th>
+        <th>Action</th>
         <th><button type="button" class="link-button" (click)="toggleSort('createdAt')">Registered On {{ getSortIndicator('createdAt') }}</button></th>
       </tr>
     </thead>
@@ -29,6 +31,11 @@
         <td>{{ row.userName }}</td>
         <td>{{ row.phoneNumber }}</td>
         <td>{{ row.email || '-' }}</td>
+        <td>{{ row.isActive ? 'Active' : 'Inactive' }}</td>
+        <td>
+          <button type="button" *ngIf="row.isActive" (click)="setUserStatus(row, false)" [disabled]="updatingStatusUserId === row.id">Deactivate</button>
+          <button type="button" *ngIf="!row.isActive" (click)="setUserStatus(row, true)" [disabled]="updatingStatusUserId === row.id">Activate</button>
+        </td>
         <td>{{ row.createdAt | date:'mediumDate' }}</td>
       </tr>
     </tbody>

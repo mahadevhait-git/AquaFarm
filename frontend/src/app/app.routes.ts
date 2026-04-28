@@ -14,6 +14,7 @@ import { FarmerTransactionDetailsPageComponent } from './pages/farmer-transactio
 import { MyPaymentsPageComponent } from './pages/my-payments-page/my-payments-page.component';
 import { ManagerDirectoryPageComponent } from './pages/manager-directory-page/manager-directory-page.component';
 import { FarmerDirectoryPageComponent } from './pages/farmer-directory-page/farmer-directory-page.component';
+import { AdminAuditPageComponent } from './pages/admin-audit-page/admin-audit-page.component';
 
 export const routes: Routes = [
   { path: 'login', component: LoginPageComponent },
@@ -29,6 +30,7 @@ export const routes: Routes = [
   { path: 'groups', component: GroupPageComponent, canActivate: [authGuard] },
   { path: 'admin/managers', component: ManagerDirectoryPageComponent, canActivate: [authGuard, adminGuard] },
   { path: 'admin/farmers', component: FarmerDirectoryPageComponent, canActivate: [authGuard, adminGuard] },
+  { path: 'admin/audit', component: AdminAuditPageComponent, canActivate: [authGuard, adminGuard] },
   { path: '', redirectTo: '/login', pathMatch: 'full' },
   { path: '**', redirectTo: '/login' },
 ];

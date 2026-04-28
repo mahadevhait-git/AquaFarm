@@ -27,6 +27,7 @@ public static class SeedData
                 Email = "admin@aquafarm.local",
                 PhoneNumber = "9000000000",
                 PasswordHash = "admin123",
+                IsActive = true,
                 Role = UserRole.Admin,
                 CreatedAt = DateTime.UtcNow
             };
@@ -40,6 +41,7 @@ public static class SeedData
             admin.Address = "Platform HQ";
             admin.Email = "admin@aquafarm.local";
             admin.PasswordHash = "admin123";
+            admin.IsActive = true;
             admin.Role = UserRole.Admin;
         }
 
@@ -62,6 +64,7 @@ public static class SeedData
                 Email = "farmer1@aquafarm.local",
                 PhoneNumber = "9000000001",
                 PasswordHash = "password123",
+                IsActive = true,
                 Role = UserRole.Farmer,
                 CreatedAt = DateTime.UtcNow
             };
@@ -75,6 +78,7 @@ public static class SeedData
             farmer.Address = "Northeast Block";
             farmer.Email = "farmer1@aquafarm.local";
             farmer.PasswordHash = "password123";
+            farmer.IsActive = true;
             farmer.Role = UserRole.Farmer;
         }
 
@@ -91,6 +95,7 @@ public static class SeedData
                 Email = "manager1@aquafarm.local",
                 PhoneNumber = "9000000002",
                 PasswordHash = "password123",
+                IsActive = true,
                 Role = UserRole.GroupManager,
                 CreatedAt = DateTime.UtcNow
             };
@@ -104,6 +109,7 @@ public static class SeedData
             groupManager.Address = "Central Zone";
             groupManager.Email = "manager1@aquafarm.local";
             groupManager.PasswordHash = "password123";
+            groupManager.IsActive = true;
             groupManager.Role = UserRole.GroupManager;
         }
 
@@ -120,6 +126,7 @@ public static class SeedData
                 Email = "ishani.hait@aquafarm.local",
                 PhoneNumber = "9000000003",
                 PasswordHash = "password123",
+                IsActive = true,
                 Role = UserRole.GroupManager,
                 CreatedAt = DateTime.UtcNow
             };
@@ -133,6 +140,7 @@ public static class SeedData
             ishaniManager.Email = "ishani.hait@aquafarm.local";
             ishaniManager.PhoneNumber = string.IsNullOrWhiteSpace(ishaniManager.PhoneNumber) ? "9000000003" : ishaniManager.PhoneNumber;
             ishaniManager.PasswordHash = "password123";
+            ishaniManager.IsActive = true;
             ishaniManager.Role = UserRole.GroupManager;
         }
 
@@ -262,6 +270,12 @@ END;");
 IF COL_LENGTH('Ponds', 'LeasedYears') IS NULL
 BEGIN
     ALTER TABLE [Ponds] ADD [LeasedYears] int NULL;
+END;");
+
+        context.Database.ExecuteSqlRaw(@"
+IF COL_LENGTH('Users', 'IsActive') IS NULL
+BEGIN
+    ALTER TABLE [Users] ADD [IsActive] bit NOT NULL CONSTRAINT [DF_Users_IsActive] DEFAULT(1);
 END;");
 
         context.Database.ExecuteSqlRaw(@"
@@ -452,6 +466,41 @@ END;");
 IF NOT EXISTS (SELECT 1 FROM sys.indexes WHERE name = 'IX_ContributionPayouts_FarmerId_CreatedAt' AND object_id = OBJECT_ID('ContributionPayouts'))
 BEGIN
     CREATE INDEX [IX_ContributionPayouts_FarmerId_CreatedAt] ON [ContributionPayouts]([FarmerId], [CreatedAt]);
+END;");
+
+        context.Database.ExecuteSqlRaw(@"
+IF OBJECT_ID(N'[InvestmentExpenseAudits]', N'U') IS NULL
+BEGIN
+    CREATE TABLE [InvestmentExpenseAudits](
+        [Id] uniqueidentifier NOT NULL,
+        [RecordType] nvarchar(50) NOT NULL,
+        [ActionType] nvarchar(20) NOT NULL,
+        [RecordId] uniqueidentifier NOT NULL,
+        [GroupId] uniqueidentifier NULL,
+        [PondId] uniqueidentifier NULL,
+        [FarmerId] uniqueidentifier NULL,
+        [OldAmount] decimal(18,2) NULL,
+        [NewAmount] decimal(18,2) NULL,
+        [OldValuesJson] nvarchar(max) NULL,
+        [NewValuesJson] nvarchar(max) NULL,
+        [PerformedById] uniqueidentifier NOT NULL,
+        [PerformedByUserName] nvarchar(200) NOT NULL,
+        [CreatedAt] datetime2 NOT NULL,
+        CONSTRAINT [PK_InvestmentExpenseAudits] PRIMARY KEY ([Id])
+    );
+END;");
+
+        context.Database.ExecuteSqlRaw(@"
+IF NOT EXISTS (SELECT 1 FROM sys.indexes WHERE name = 'IX_InvestmentExpenseAudits_CreatedAt' AND object_id = OBJECT_ID('InvestmentExpenseAudits'))
+BEGIN
+    CREATE INDEX [IX_InvestmentExpenseAudits_CreatedAt] ON [InvestmentExpenseAudits]([CreatedAt]);
+END;");
+
+        context.Database.ExecuteSqlRaw(@"
+IF NOT EXISTS (SELECT 1 FROM sys.indexes WHERE name = 'IX_InvestmentExpenseAudits_RecordType_ActionType_CreatedAt' AND object_id = OBJECT_ID('InvestmentExpenseAudits'))
+BEGIN
+    CREATE INDEX [IX_InvestmentExpenseAudits_RecordType_ActionType_CreatedAt]
+    ON [InvestmentExpenseAudits]([RecordType], [ActionType], [CreatedAt]);
 END;");
     }
 }

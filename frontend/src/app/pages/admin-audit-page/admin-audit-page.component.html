@@ -1,0 +1,33 @@
+<div>
+  <h1 class="page-title">Investment & Expense Audit</h1>
+
+  <div class="error" *ngIf="errorMessage">{{ errorMessage }}</div>
+  <p *ngIf="loading">Loading...</p>
+
+  <table class="table" *ngIf="!loading && rows.length > 0">
+    <thead>
+      <tr>
+        <th>When</th>
+        <th>Type</th>
+        <th>Action</th>
+        <th>Old Amount</th>
+        <th>New Amount</th>
+        <th>By</th>
+        <th>Record Id</th>
+      </tr>
+    </thead>
+    <tbody>
+      <tr *ngFor="let row of rows">
+        <td>{{ row.createdAt | date:'medium' }}</td>
+        <td>{{ row.recordType }}</td>
+        <td>{{ row.actionType }}</td>
+        <td>{{ row.oldAmount ?? '-' }}</td>
+        <td>{{ row.newAmount ?? '-' }}</td>
+        <td>{{ row.performedByUserName }}</td>
+        <td>{{ row.recordId }}</td>
+      </tr>
+    </tbody>
+  </table>
+
+  <p *ngIf="!loading && rows.length === 0">No audit records found.</p>
+</div>

@@ -118,6 +118,11 @@ public class AuthController : ControllerBase
             return BadRequest("Invalid credentials.");
         }
 
+        if (!user.IsActive)
+        {
+            return BadRequest("Your account is inactive. Please contact admin.");
+        }
+
         var role = user.Role.ToString();
         var token = _tokenService.CreateToken(user.Id, user.UserName, role);
         return Ok(new AuthResponse(token, role));
