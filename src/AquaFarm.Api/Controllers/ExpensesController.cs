@@ -527,7 +527,8 @@ public class ExpensesController : ControllerBase
                 b.Id,
                 b.ExpenseId,
                 b.FileName,
-                b.UploadedAt))
+                b.UploadedAt,
+                false))
             .ToListAsync();
 
         // Legacy single-bill fields are kept for backward compatibility.

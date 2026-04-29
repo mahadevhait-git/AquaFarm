@@ -7,11 +7,12 @@ import { firstValueFrom } from 'rxjs';
 import { ApiService } from '../../services/api.service';
 import { AuthService } from '../../services/auth.service';
 import { I18nPipe } from '../../pipes/i18n.pipe';
+import { BengaliKeyboardComponent } from '../../components/bengali-keyboard/bengali-keyboard.component';
 
 @Component({
   selector: 'app-register-page',
   standalone: true,
-  imports: [CommonModule, FormsModule, RouterLink, I18nPipe],
+  imports: [CommonModule, FormsModule, RouterLink, I18nPipe, BengaliKeyboardComponent],
   templateUrl: './register-page.component.html',
 })
 export class RegisterPageComponent {
@@ -26,6 +27,7 @@ export class RegisterPageComponent {
   errorMessage = '';
   showPassword = false;
   loading = false;
+  showBnKeyboard = false;
 
   constructor(private apiService: ApiService, private authService: AuthService, private router: Router) {}
 

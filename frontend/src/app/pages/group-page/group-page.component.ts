@@ -7,11 +7,12 @@ import { Group, GroupMember, GroupMemberCandidate, Pond } from '../../models';
 import { ApiService } from '../../services/api.service';
 import { AuthService } from '../../services/auth.service';
 import { I18nPipe } from '../../pipes/i18n.pipe';
+import { BengaliKeyboardComponent } from '../../components/bengali-keyboard/bengali-keyboard.component';
 
 @Component({
   selector: 'app-group-page',
   standalone: true,
-  imports: [CommonModule, FormsModule, I18nPipe],
+  imports: [CommonModule, FormsModule, I18nPipe, BengaliKeyboardComponent],
   templateUrl: './group-page.component.html',
 })
 export class GroupPageComponent implements OnInit {
@@ -40,6 +41,7 @@ export class GroupPageComponent implements OnInit {
   newFarmerAddress = '';
   newFarmerEmail = '';
   newFarmerPhoneNumber = '';
+  showFarmerAddressKeyboard = false;
 
   constructor(
     private apiService: ApiService,

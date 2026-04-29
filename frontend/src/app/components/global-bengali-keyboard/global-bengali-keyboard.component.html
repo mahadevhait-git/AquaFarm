@@ -1,0 +1,19 @@
+<div *ngIf="visible" style="position: fixed; right: 12px; bottom: 12px; z-index: 1000;">
+  <button *ngIf="minimized" type="button" (click)="showKeyboard()">বাংলা কিবোর্ড</button>
+
+  <div *ngIf="!minimized" class="card" style="padding: 10px; width: 360px;">
+    <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 8px;">
+      <strong>বাংলা কিবোর্ড</strong>
+      <button type="button" (click)="hideKeyboard()">-</button>
+    </div>
+
+    <div *ngFor="let row of rows" style="display: flex; flex-wrap: wrap; gap: 6px; margin-bottom: 6px;">
+      <button type="button" *ngFor="let key of row" (click)="insertChar(key)" style="min-width: 28px;">{{ key }}</button>
+    </div>
+
+    <div style="display: flex; gap: 6px;">
+      <button type="button" (click)="insertChar(' ')" style="flex: 1;">Space</button>
+      <button type="button" (click)="backspace()">Backspace</button>
+    </div>
+  </div>
+</div>

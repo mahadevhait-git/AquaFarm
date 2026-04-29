@@ -123,6 +123,10 @@
           <div class="form-group">
             <label for="newFarmerAddress">Address</label>
             <input id="newFarmerAddress" type="text" [(ngModel)]="newFarmerAddress">
+            <button type="button" style="margin-top: 8px;" (click)="showFarmerAddressKeyboard = !showFarmerAddressKeyboard">
+              {{ showFarmerAddressKeyboard ? 'Hide Bengali Keyboard' : 'Show Bengali Keyboard' }}
+            </button>
+            <app-bengali-keyboard *ngIf="showFarmerAddressKeyboard" [(value)]="newFarmerAddress"></app-bengali-keyboard>
           </div>
         </div>
         <button type="button" (click)="createFarmer()" [disabled]="creatingFarmer">

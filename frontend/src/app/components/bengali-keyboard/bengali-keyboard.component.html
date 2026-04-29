@@ -1,0 +1,13 @@
+<div class="card" style="margin-top: 8px; padding: 10px;">
+  <p style="margin: 0 0 8px 0; font-weight: 600;">বাংলা কিবোর্ড</p>
+  <div *ngFor="let row of rows" style="display: flex; flex-wrap: wrap; gap: 6px; margin-bottom: 6px;">
+    <button type="button" *ngFor="let key of row" (click)="addChar(key)" style="min-width: 34px; padding: 6px 8px;">
+      {{ key }}
+    </button>
+  </div>
+  <div style="display: flex; gap: 6px; flex-wrap: wrap;">
+    <button type="button" (click)="space()">Space</button>
+    <button type="button" (click)="backspace()">Backspace</button>
+    <button type="button" class="danger" (click)="clearAll()">Clear</button>
+  </div>
+</div>

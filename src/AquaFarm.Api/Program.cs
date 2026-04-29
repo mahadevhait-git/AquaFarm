@@ -4,6 +4,7 @@ using AquaFarm.Core.Interfaces;
 using AquaFarm.Infrastructure.Data;
 using AquaFarm.Infrastructure.Services;
 using Microsoft.AspNetCore.Authentication;
+using Microsoft.AspNetCore.HttpOverrides;
 using Microsoft.EntityFrameworkCore;
 using System.Text.Json.Serialization;
 
@@ -37,19 +38,32 @@ builder.Services.AddAuthentication(options =>
 
 builder.Services.AddAuthorization();
 
+var frontendUrl = builder.Configuration["App:FrontendUrl"];
 builder.Services.AddCors(options =>
 {
-    options.AddDefaultPolicy(policy => policy.AllowAnyOrigin().AllowAnyHeader().AllowAnyMethod());
+    options.AddDefaultPolicy(policy =>
+    {
+        if (!string.IsNullOrWhiteSpace(frontendUrl))
+        {
+            policy.WithOrigins(frontendUrl).AllowAnyHeader().AllowAnyMethod();
+        }
+        else
+        {
+            policy.AllowAnyOrigin().AllowAnyHeader().AllowAnyMethod();
+        }
+    });
 });
 
 var app = builder.Build();
 
 SeedData.Initialize(app.Services);
 
-if (app.Environment.IsDevelopment())
+app.UseForwardedHeaders(new ForwardedHeadersOptions
 {
-    app.MapOpenApi();
-}
+    ForwardedHeaders = ForwardedHeaders.XForwardedFor | ForwardedHeaders.XForwardedProto
+});
+
+app.MapOpenApi();
 
 app.UseCors();
 app.UseSwagger();
@@ -66,5 +80,6 @@ app.UseAuthentication();
 app.UseAuthorization();
 
 app.MapControllers();
+app.MapGet("/", () => Results.Redirect("/swagger"));
 
 app.Run();

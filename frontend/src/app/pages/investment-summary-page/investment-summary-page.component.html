@@ -1,11 +1,11 @@
 <div>
-  <button type="button" (click)="goBack()" style="margin-bottom: 12px;">Back</button>
-  <h1 class="page-title">Expense and Contribution Summary</h1>
+  <button type="button" (click)="goBack()" style="margin-bottom: 12px;">{{ 'common.back' | i18n }}</button>
+  <h1 class="page-title">{{ 'summary.title' | i18n }}</h1>
   <div class="error" *ngIf="errorMessage">{{ errorMessage }}</div>
 
   <div class="card">
     <div class="form-group">
-      <label for="summaryGroup">Select Pond</label>
+      <label for="summaryGroup">{{ 'summary.selectPond' | i18n }}</label>
       <select
         id="summaryGroup"
         [(ngModel)]="selectedPondId"
@@ -13,37 +13,37 @@
         (change)="onPondChange()"
         [disabled]="loadingGroups || ponds.length === 0"
       >
-        <option [ngValue]="''">-- Select a pond --</option>
+        <option [ngValue]="''">{{ 'summary.selectPondPlaceholder' | i18n }}</option>
         <option *ngFor="let pond of ponds" [ngValue]="pond.id">{{ pond.name }}</option>
       </select>
     </div>
   </div>
 
-  <p *ngIf="!selectedPondId">Please select a pond to view summary.</p>
+  <p *ngIf="!selectedPondId">{{ 'summary.selectPondHint' | i18n }}</p>
   <p *ngIf="selectedPondId && loadingSummary">{{ 'common.loading' | i18n }}</p>
   <div *ngIf="selectedPondId && !loadingSummary">
     <div class="card" style="margin-bottom: 16px;">
-      <h2 style="margin-top: 0;">Investment and Expense Overview</h2>
+      <h2 style="margin-top: 0;">{{ 'summary.overviewTitle' | i18n }}</h2>
       <table class="table">
         <tbody>
           <tr>
-            <th>Total Investment</th>
+            <th>{{ 'summary.totalInvestment' | i18n }}</th>
             <td>{{ totalInvestmentAmount | number:'1.2-2' }}</td>
           </tr>
           <tr>
-            <th>Total Expenses</th>
+            <th>{{ 'summary.totalExpenses' | i18n }}</th>
             <td>{{ totalExpensesAmount | number:'1.2-2' }}</td>
           </tr>
         </tbody>
       </table>
     </div>
 
-    <h2>Category-wise Expenses</h2>
+    <h2>{{ 'summary.categoryExpensesTitle' | i18n }}</h2>
     <table class="table" *ngIf="expenseCategoryRows.length > 0">
       <thead>
         <tr>
-          <th>Expense Category</th>
-          <th>Total Spent</th>
+          <th>{{ 'summary.expenseCategory' | i18n }}</th>
+          <th>{{ 'summary.totalSpent' | i18n }}</th>
         </tr>
       </thead>
       <tbody>
@@ -52,19 +52,19 @@
           <td>{{ row.totalSpent | number:'1.2-2' }}</td>
         </tr>
         <tr>
-          <th>Total Expenses</th>
+          <th>{{ 'summary.totalExpenses' | i18n }}</th>
           <th>{{ totalExpensesAmount | number:'1.2-2' }}</th>
         </tr>
       </tbody>
     </table>
-    <p *ngIf="expenseCategoryRows.length === 0">No expenses found for this pond.</p>
+    <p *ngIf="expenseCategoryRows.length === 0">{{ 'summary.noExpensesForPond' | i18n }}</p>
 
-    <h2>Farmer Contributions</h2>
+    <h2>{{ 'summary.farmerContributionsTitle' | i18n }}</h2>
     <table class="table" *ngIf="farmerRows.length > 0">
       <thead>
         <tr>
-          <th>Farmer Name</th>
-          <th>Total Contribution</th>
+          <th>{{ 'summary.farmerName' | i18n }}</th>
+          <th>{{ 'summary.totalContribution' | i18n }}</th>
           <th>{{ 'loan.actions' | i18n }}</th>
         </tr>
       </thead>
@@ -73,16 +73,16 @@
           <td>{{ row.name }}</td>
           <td>{{ row.totalContribution | number:'1.2-2' }}</td>
           <td>
-            <button type="button" (click)="openFarmerDetails(row)">View Details</button>
+            <button type="button" (click)="openFarmerDetails(row)">{{ 'summary.viewDetails' | i18n }}</button>
           </td>
         </tr>
         <tr>
-          <th>Total Contribution Amount</th>
+          <th>{{ 'summary.totalContributionAmount' | i18n }}</th>
           <th>{{ totalContributionAmount | number:'1.2-2' }}</th>
           <th></th>
         </tr>
       </tbody>
     </table>
-    <p *ngIf="farmerRows.length === 0">No contribution records found for this pond.</p>
+    <p *ngIf="farmerRows.length === 0">{{ 'summary.noContributionForPond' | i18n }}</p>
   </div>
 </div>

@@ -9,9 +9,9 @@
       <a *ngIf="isFarmer" routerLink="/my-payments" routerLinkActive="active">My Payments</a>
       <a routerLink="/expenses" routerLinkActive="active">{{ 'nav.expenses' | i18n }}</a>
       <a routerLink="/groups" routerLinkActive="active">{{ 'nav.groups' | i18n }}</a>
-      <a *ngIf="isAdmin" routerLink="/admin/managers" routerLinkActive="active">Managers</a>
-      <a *ngIf="isAdmin" routerLink="/admin/farmers" routerLinkActive="active">Farmers</a>
-      <a *ngIf="isAdmin" routerLink="/admin/audit" routerLinkActive="active">Audit Logs</a>
+      <a *ngIf="isAdmin" routerLink="/admin/managers" routerLinkActive="active">{{ 'nav.managers' | i18n }}</a>
+      <a *ngIf="isAdmin" routerLink="/admin/farmers" routerLinkActive="active">{{ 'nav.farmers' | i18n }}</a>
+      <a *ngIf="isAdmin" routerLink="/admin/audit" routerLinkActive="active">{{ 'nav.auditLogs' | i18n }}</a>
     </nav>
     <div class="sidebar-user">
       <div class="sidebar-user-label">Logged in as</div>
